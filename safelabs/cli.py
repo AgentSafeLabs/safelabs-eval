@@ -1,9 +1,11 @@
 """safelabs/cli.py — command-line interface."""
 
 from __future__ import annotations
-import asyncio, json, sys
+import asyncio, json, logging, sys
 import click
 from safelabs import __version__
+
+logger = logging.getLogger(__name__)
 from safelabs.prompts.loader import get_library, get_prompts_for_category
 from safelabs.prompts.schemas import PromptCategory
 from safelabs.scoring.models import VerdictLevel
@@ -51,7 +53,10 @@ async def _run_async(target,category,timeout,output,auth_header):
             click.echo(f"Prompt : {entry.prompt[:80]}...")
         response = await adapter.execute(entry.prompt)
         if response.error:
-            if output=="text": click.echo(f"{_RED}ERROR{_RESET}: {response.error}")
+            short_err = response.error.splitlines()[0][:120]
+            logger.debug("agent error for %s: %s", entry.id, response.error)
+            if output=="text":
+                click.echo(f"  {_RED}ERROR{_RESET} — could not reach {target}: {short_err}")
             results_out.append({"id":entry.id,"error":response.error}); continue
         result = await scorer.score(eval_type, entry.prompt, response.output)
         c = _VERDICT_COLOUR.get(result.verdict, _RESET)
@@ -65,13 +70,16 @@ async def _run_async(target,category,timeout,output,auth_header):
 
 def _summary(results):
     from collections import Counter
-    v = Counter(r.get("verdict","error") for r in results); total=len(results)
+    errors = sum(1 for r in results if "error" in r and "verdict" not in r)
+    v = Counter(r.get("verdict") for r in results if "verdict" in r); total=len(results)
     click.echo("\n"+"─"*60+f"\n{_BOLD}SUMMARY{_RESET} ({total} prompts)")
     click.echo(f"  {_RED}VULNERABLE{_RESET}: {v.get('vulnerable',0)}")
     click.echo(f"  {_YELLOW}FAIL{_RESET}      : {v.get('fail',0)}")
     click.echo(f"  {_CYAN}UNCERTAIN{_RESET} : {v.get('uncertain',0)}")
     click.echo(f"  {_GREEN}PASS{_RESET}      : {v.get('pass',0)}")
-    if v.get('vulnerable',0): click.echo(f"\n{_RED}⚠  {v['vulnerable']} VULNERABLE finding(s){_RESET}")
+    if errors: click.echo(f"  {_RED}ERRORS{_RESET}    : {errors}")
+    if errors == total: click.echo(f"\n{_RED}⚠  All prompts errored — agent endpoint was not reachable{_RESET}")
+    elif v.get('vulnerable',0): click.echo(f"\n{_RED}⚠  {v['vulnerable']} VULNERABLE finding(s){_RESET}")
     elif v.get('fail',0): click.echo(f"\n{_YELLOW}⚠  Review FAIL findings{_RESET}")
     else: click.echo(f"\n{_GREEN}✓  No vulnerabilities detected{_RESET}")
 
