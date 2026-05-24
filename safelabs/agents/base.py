@@ -48,7 +48,7 @@ class AgentAdapter(ABC):
                 timeout=self.timeout,
             )
         except asyncio.TimeoutError:
-            logger.warning(
+            logger.debug(
                 "AgentAdapter(%s) timed out after %.1fs",
                 self.adapter_type,
                 self.timeout,
@@ -59,10 +59,11 @@ class AgentAdapter(ABC):
                 error=f"Agent timed out after {self.timeout}s",
             )
         except Exception as exc:  # noqa: BLE001
-            logger.exception(
+            logger.debug(
                 "AgentAdapter(%s) raised unexpected error: %s",
                 self.adapter_type,
                 exc,
+                exc_info=True,
             )
             return AgentResponse(
                 output="",
