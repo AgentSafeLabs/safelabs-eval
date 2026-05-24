@@ -26,3 +26,7 @@ GitHub: https://github.com/AgentSafeLabs/safelabs-eval
 __version__ = "0.1.0"
 __author__  = "Waqar Javed"
 __license__ = "Apache-2.0"
+
+from safelabs.runner import EvalRecord, EvalResult, run_eval  # noqa: E402
+
+__all__ = ["EvalRecord", "EvalResult", "run_eval"]
