@@ -4,12 +4,12 @@ build-backend = "hatchling.build"
 
 [project]
 name = "safelabs-eval"
-version = "0.1.0"
+version = "0.1.2"
 description = "OWASP-aligned red-teaming and evaluation framework for AI agents"
 readme = "README.md"
 license = { text = "Apache-2.0" }
 authors = [
-    { name = "Waqar Javed", email = "waqar@safelabs.ai" },
+    { name = "Waqar Javed", email = "waqar@agentsafelabs.io" },
 ]
 keywords = [
     "ai-safety", "red-teaming", "llm", "agents",

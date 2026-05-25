@@ -23,7 +23,7 @@ Quick start
 GitHub: https://github.com/AgentSafeLabs/safelabs-eval
 """
 
-__version__ = "0.1.0"
+__version__ = "0.1.2"
 __author__  = "Waqar Javed"
 __license__ = "Apache-2.0"
 
