@@ -7,6 +7,8 @@
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue)](LICENSE)
 [![OWASP ASI](https://img.shields.io/badge/OWASP-ASI%20Top%2010-red)](https://owasp.org/www-project-top-10-for-large-language-model-applications/)
 [![Version](https://img.shields.io/badge/version-0.1.1-orange)](https://github.com/AgentSafeLabs/safelabs-eval/releases/tag/v0.1.1)
+[![PyPI version](https://badge.fury.io/py/safelabs-eval.svg)](https://pypi.org/project/safelabs-eval/)
+[![PyPI - Python Version](https://img.shields.io/pypi/pyversions/safelabs-eval)](https://pypi.org/project/safelabs-eval/)
 
 ---
 
