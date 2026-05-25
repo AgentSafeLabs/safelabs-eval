@@ -1,6 +1,7 @@
 # safelabs-eval
 
 **Open-source red-teaming and evaluation framework for AI agents — aligned to the OWASP Agentic Security Initiative (ASI) Top 10.**
+
 [![CI](https://github.com/AgentSafeLabs/safelabs-eval/actions/workflows/ci.yml/badge.svg)](https://github.com/AgentSafeLabs/safelabs-eval/actions/workflows/ci.yml)
 [![Tests](https://img.shields.io/badge/tests-47%20passed-brightgreen)](https://github.com/AgentSafeLabs/safelabs-eval/tree/main/tests)
 [![Python](https://img.shields.io/badge/python-3.11%2B-blue)](https://www.python.org/)
