@@ -3,7 +3,7 @@
 **Open-source red-teaming and evaluation framework for AI agents — aligned to the OWASP Agentic Security Initiative (ASI) Top 10.**
 
 [![CI](https://github.com/AgentSafeLabs/safelabs-eval/actions/workflows/ci.yml/badge.svg)](https://github.com/AgentSafeLabs/safelabs-eval/actions/workflows/ci.yml)
-[![Tests](https://img.shields.io/badge/tests-47%20passed-brightgreen)](https://github.com/AgentSafeLabs/safelabs-eval/tree/main/tests)
+[![Tests](https://img.shields.io/badge/tests-84%20passed-brightgreen)](https://github.com/AgentSafeLabs/safelabs-eval/tree/main/tests)
 [![Python](https://img.shields.io/badge/python-3.11%2B-blue)](https://www.python.org/)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue)](LICENSE)
 [![OWASP ASI](https://img.shields.io/badge/OWASP-ASI%20Top%2010-red)](https://owasp.org/www-project-top-10-for-large-language-model-applications/)
@@ -12,7 +12,7 @@
 
 ---
 
-AI agents built on LangChain, CrewAI, AutoGen, and custom frameworks ship to production without systematic safety testing. `safelabs-eval` changes that.
+AI agents built on LangChain, CrewAI, AutoGen, LlamaIndex, the OpenAI Agents SDK, and custom frameworks ship to production without systematic safety testing. `safelabs-eval` changes that.
 
 Point it at any agent endpoint — or wrap any Python callable — and it fires **30 curated adversarial prompts** across all 10 OWASP ASI categories, scores every response with pattern-based detectors, and prints a structured security report in seconds.
 
@@ -56,7 +56,7 @@ safelabs run --target http://localhost:8000/chat --category ASI01 --timeout 60
 **Example report — agent under test (Claude Haiku, ASI01 Prompt Injection):**
 
 ```
-safelabs-eval v0.1.1
+safelabs-eval v0.2.0
 Target  : http://localhost:8000/chat
 Category: ASI01 (3 prompts)
 ────────────────────────────────────────────────────────────
@@ -192,9 +192,14 @@ safelabs/
 ├── runner.py            # run_eval() — top-level Python API
 ├── cli.py               # safelabs CLI (list, prompts, run)
 ├── agents/
-│   ├── base.py          # AgentAdapter ABC
-│   ├── http_adapter.py  # HTTP POST adapter for REST endpoints
-│   └── schemas.py       # AgentResponse model
+│   ├── base.py                   # AgentAdapter ABC + timeout / error wrapping
+│   ├── schemas.py                # AgentResponse model
+│   ├── http_adapter.py           # HTTP POST adapter for REST endpoints
+│   ├── langchain_adapter.py      # LangChain Runnable adapter        [optional]
+│   ├── crewai_adapter.py         # CrewAI Crew adapter                [optional]
+│   ├── autogen_adapter.py        # AutoGen / ag2 ConversableAgent     [optional]
+│   ├── llamaindex_adapter.py     # LlamaIndex AgentWorkflow adapter   [optional]
+│   └── openai_agents_adapter.py  # OpenAI Agents SDK adapter          [optional]
 ├── prompts/
 │   ├── library.py       # 30 OWASP ASI adversarial prompts
 │   ├── loader.py        # Helpers: by_category(), by_severity()
@@ -219,15 +224,77 @@ safelabs/
 
 ---
 
+## Framework Adapters
+
+Install only the extras you need. The core package (HTTP adapter + CLI) requires no optional dependencies.
+
+| Framework | pip extra | Minimum version |
+|---|---|---|
+| LangChain | `pip install "safelabs-eval[langchain]"` | `langchain-core>=0.1` |
+| CrewAI | `pip install "safelabs-eval[crewai]"` | `crewai>=0.30` |
+| AutoGen / ag2 | `pip install "safelabs-eval[autogen]"` | `ag2>=0.2` |
+| LlamaIndex | `pip install "safelabs-eval[llamaindex]"` | `llama-index-core>=0.11` |
+| OpenAI Agents SDK | `pip install "safelabs-eval[openai-agents]"` | `openai-agents>=0.1` |
+
+**Usage examples:**
+
+```python
+from safelabs.agents import LangChainAdapter
+
+# LangChain — any Runnable (chain, agent, chat model)
+adapter = LangChainAdapter(runnable=chain, input_key="input")
+```
+
+```python
+from safelabs.agents import CrewAIAdapter
+
+# CrewAI — Crew.kickoff() runs in a thread pool (sync API)
+adapter = CrewAIAdapter(crew=crew, input_key="input")
+```
+
+```python
+from safelabs.agents import AutoGenAdapter
+
+# AutoGen / ag2 — recipient initiates single-turn chat with agent
+adapter = AutoGenAdapter(agent=agent, recipient=user_proxy)
+```
+
+```python
+from safelabs.agents import LlamaIndexAdapter
+
+# LlamaIndex — AgentWorkflow.run(user_msg=prompt) — async-native
+adapter = LlamaIndexAdapter(workflow=workflow)
+```
+
+```python
+from safelabs.agents import OpenAIAgentsAdapter
+
+# OpenAI Agents SDK — Runner.run(agent, prompt) — async-native
+adapter = OpenAIAgentsAdapter(agent=agent)
+```
+
+Pass any adapter to `run_eval` or call `.execute(prompt)` directly:
+
+```python
+from safelabs import run_eval
+
+result = asyncio.run(run_eval(adapter.execute, categories=["ASI01", "ASI08"]))
+result.summary()
+```
+
+---
+
 ## What's Coming
 
-We're actively developing new adapters, detectors, and reporting features.
+We're actively developing new detectors, prompts, and reporting features.
 Watch this repo or join the discussion in [GitHub Issues](https://github.com/AgentSafeLabs/safelabs-eval/issues) to follow along and shape the direction.
 
-**Want to contribute?** The highest-value areas right now:
-- Agent framework adapters (CrewAI, LangChain, AutoGen)
-- Additional adversarial prompts per category
-- Integration test harnesses
+**Want to contribute?** The highest-value open areas right now:
+
+- **Additional adversarial prompts** — each ASI category currently has 3 prompts; expanding to 10+ per category with more varied attack patterns would meaningfully improve coverage.
+- **Integration test harnesses** — the current adapter tests use duck-typed fakes and do not install real framework packages. Tests that run against actual LangChain, CrewAI, AutoGen, LlamaIndex, and OpenAI Agents SDK objects (in an optional CI job) are a real gap.
+- **Additional framework adapters** — Google ADK and Semantic Kernel are natural next candidates given their growing production adoption.
+- **Richer detectors** — current detectors are regex-based; LLM-graded and embedding-similarity detectors would close the gap on subtle attacks that pattern matching misses.
 
 Open an issue before submitting a PR.
 
