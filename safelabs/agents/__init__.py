@@ -6,6 +6,7 @@ from safelabs.agents.crewai_adapter import CrewAIAdapter
 from safelabs.agents.http_adapter import HttpAdapter
 from safelabs.agents.langchain_adapter import LangChainAdapter
 from safelabs.agents.llamaindex_adapter import LlamaIndexAdapter
+from safelabs.agents.openai_agents_adapter import OpenAIAgentsAdapter
 from safelabs.agents.schemas import AgentResponse
 
 __all__ = [
@@ -16,4 +17,5 @@ __all__ = [
     "HttpAdapter",
     "LangChainAdapter",
     "LlamaIndexAdapter",
+    "OpenAIAgentsAdapter",
 ]
