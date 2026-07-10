@@ -23,6 +23,13 @@ class _FakeWorkflowResult:
         self.response = response
 
 
+class _FakeChatMessage:
+    """Mimics llama_index's ChatMessage — has .content, but is not itself a string."""
+
+    def __init__(self, content: str) -> None:
+        self.content = content
+
+
 class _FakeWorkflow:
     """
     Mimics an AgentWorkflow.
@@ -75,6 +82,22 @@ async def test_response_attribute_takes_priority_over_str_fallback():
     adapter  = LlamaIndexAdapter(workflow=workflow)
     r = await adapter.execute("probe")
     assert r.output == "from response attr"
+
+
+@pytest.mark.asyncio
+async def test_extract_output_from_chatmessage_response_content():
+    """.response may be a ChatMessage-like object (AgentOutput shape, observed on
+    llama-index-core >= 0.14) rather than a plain string. Extraction must read
+    .response.content directly, not fall through to the str(result) fallback."""
+    chat_message = _FakeChatMessage("Refused via ChatMessage content.")
+    result       = _FakeWorkflowResult(chat_message)
+    workflow     = _FakeWorkflow(result)
+    adapter      = LlamaIndexAdapter(workflow=workflow)
+    r = await adapter.execute("probe")
+    assert r.output == "Refused via ChatMessage content."
+    # _FakeWorkflowResult defines no __str__, so a default object repr would
+    # not equal the content — confirms the value came from the new branch.
+    assert str(result) != chat_message.content
 
 
 # ── output extraction: plain string ───────────────────────────────────────────

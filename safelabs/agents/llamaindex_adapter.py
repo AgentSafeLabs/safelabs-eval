@@ -26,8 +26,13 @@ Version compatibility note
 LlamaIndex's agent API has changed significantly across major versions:
 
 * ``llama-index-core >= 0.11`` — introduces ``AgentWorkflow``, invoked via
-  ``await workflow.run(user_msg=prompt)`` which returns a result whose
-  ``.response`` attribute or ``str()`` representation holds the final text.
+  ``await workflow.run(user_msg=prompt)``. Confirmed against a real
+  ``llama-index-core 0.14.23`` install: this returns an ``AgentOutput``
+  whose ``.response`` is a ``ChatMessage`` (not a plain string) — the
+  final text lives at ``.response.content``. ``str()`` on the result
+  also happens to work today, since ``AgentOutput.__str__`` returns
+  ``response.content``, but ``_extract_output`` checks ``.response.content``
+  directly rather than relying on that ``__str__`` implementation detail.
   **This adapter targets this API.**
 
 * ``llama-index-core 0.10.x`` — agent classes such as ``ReActAgent`` and
@@ -97,14 +102,21 @@ class LlamaIndexAdapter(AgentAdapter):
         return AgentResponse(output=self._extract_output(result), latency_ms=latency_ms)
 
     def _extract_output(self, result: object) -> str:
-        # 1. .response attribute — AgentChatResponse (0.10.x) and some 0.11+ shapes.
+        # 1. .response attribute as plain string — AgentChatResponse (0.10.x) shape.
         response = getattr(result, "response", None)
         if response is not None and isinstance(response, str):
             return response
 
-        # 2. Plain string — AgentWorkflow.run() may return str directly (>= 0.11).
+        # 2. .response as ChatMessage — AgentOutput shape (observed on
+        #    llama-index-core >= 0.14). response.content holds the text;
+        #    response itself is not a string, so branch 1 doesn't catch it.
+        content = getattr(response, "content", None)
+        if content is not None and isinstance(content, str):
+            return content
+
+        # 3. Plain string — AgentWorkflow.run() may return str directly (>= 0.11).
         if isinstance(result, str):
             return result
 
-        # 3. Fallback for unknown or future result shapes.
+        # 4. Fallback for unknown or future result shapes.
         return str(result)
