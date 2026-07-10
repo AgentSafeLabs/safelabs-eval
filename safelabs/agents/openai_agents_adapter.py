@@ -39,6 +39,30 @@ import errors surface on the first call, not at construction time.
 For testing without a real ``openai-agents`` install, pass a duck-typed
 ``runner`` object directly to the constructor; the lazy import is skipped
 when ``runner`` is not ``None``.
+
+Known version-skew bug (as of 2026-07-10)
+------------------------------------------
+``openai-agents==0.18.0`` combined with ``openai>=2.45`` crashes on
+*every* ``Runner.run()`` call, regardless of model backend, before any
+model dispatch happens: ``agents/usage.py`` constructs
+``InputTokensDetails(cached_tokens=0)``, but ``openai>=2.45`` made
+``InputTokensDetails.cache_write_tokens`` a required field with no
+default, so pydantic validation fails inside ``RunContextWrapper``
+construction at the very start of the run. Confirmed via full traceback
+during real-adapter verification (see ``examples/openai_agents_adapter_verify.py``) —
+zero API cost was incurred since the failure precedes any network call.
+
+Pinned around via ``openai<2.45`` in the ``openai-agents`` extra in
+``pyproject.toml``. ``openai-agents==0.18.1`` (released after 0.18.0,
+the version this adapter was originally verified against) already
+rewrote ``agents/usage.py`` to build ``InputTokensDetails`` via
+``model_validate``/``TypeAdapter`` instead of direct keyword
+construction — confirmed locally (no API call) that this no longer
+crashes even with ``openai==2.45.0`` installed. So the upstream fix has
+likely already landed; the ``openai<2.45`` pin is now mostly
+defense-in-depth for anyone still resolving to ``openai-agents==0.18.0``
+specifically. Safe to consider loosening the pin once ``openai-agents``
+in this project's lock/extras floor moves past ``0.18.0``.
 """
 
 from __future__ import annotations
