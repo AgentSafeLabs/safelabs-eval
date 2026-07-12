@@ -61,6 +61,7 @@ packages = ["safelabs"]
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
+markers = ["e2e_pip_cycle: real pip install/uninstall, mutates .venv, opt-in only"]
 
 [tool.ruff]
 line-length = 100
