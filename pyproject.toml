@@ -62,6 +62,7 @@ packages = ["safelabs"]
 asyncio_mode = "auto"
 testpaths = ["tests"]
 markers = ["e2e_pip_cycle: real pip install/uninstall, mutates .venv, opt-in only"]
+addopts = "-m 'not e2e_pip_cycle'"
 
 [tool.ruff]
 line-length = 100
