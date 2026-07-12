@@ -15,18 +15,19 @@
 
 set -uo pipefail
 
-# Map: repo directory name -> importable package name
-declare -A REPOS=(
-  ["safelabs-eval"]="safelabs"
-  ["agentdojo-x"]="agentdojo_x"
-  ["safelabs-platform"]="safelabs_platform"
-)
+# Map: repo directory name -> importable package name.
+# Parallel indexed arrays, not associative — associative arrays require
+# bash 4+, and this script may be invoked as `bash script.sh`, which
+# resolves to whatever bash is first in PATH (often macOS's bash 3.2
+# at /bin/bash, regardless of the shebang above).
+REPO_DIRS=("safelabs-eval" "agentdojo-x" "safelabs-platform")
+REPO_PKGS=("safelabs-eval" "agentdojo-x" "safelabs-platform")
 
 FAILED=0
 
-for repo in "${!REPOS[@]}"; do
-  pkg="${REPOS[$repo]}"
-  echo "=== ${repo} (package: ${pkg}) ==="
+for i in "${!REPO_DIRS[@]}"; do
+  repo="${REPO_DIRS[$i]}"
+  pkg="${REPO_PKGS[$i]}"
 
   if [ ! -d "${repo}" ]; then
     echo "  SKIP — directory not found at ./${repo}"
