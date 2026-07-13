@@ -41,12 +41,36 @@ class AgentAdapter(ABC):
         Send prompt to the agent and return a normalised AgentResponse.
 
         Wraps _execute with asyncio timeout and blanket exception handling.
+
+        Error-reporting parity (added 2026-07-13): when the underlying call
+        fails loudly (raises), the except branches below already populate
+        `error`. But when a concrete adapter's `_execute()` returns
+        *normally* with empty output — no exception at all — behavior used
+        to vary by framework for the exact same underlying condition (e.g.
+        a provider content-policy block, or reasoning tokens consuming the
+        entire completion budget before any visible text): CrewAI and
+        AutoGen's underlying clients sometimes swallow the failure
+        internally and return an empty result rather than raising, so their
+        adapters returned `AgentResponse(output="", error=None)`; LangChain
+        and the OpenAI Agents SDK happened to propagate it as a raised
+        exception instead, which this method already caught. Confirmed live
+        across all 6 adapters via the exact prompts that surfaced this
+        (agentdojo-x's staging run): CrewAI, AutoGen, and Http all returned
+        `error=None` on empty output for at least one of these cases.
+        Downstream scoring needs one field to check regardless of
+        framework, so this normalizes it here — after a successful,
+        non-raising `_execute()` call — rather than duplicating an
+        empty-output check in each of the 6 adapters individually. This
+        does not change anything when real output is present.
         """
         try:
-            return await asyncio.wait_for(
+            result = await asyncio.wait_for(
                 self._execute(prompt),
                 timeout=self.timeout,
             )
+            if result.error is None and not result.output.strip():
+                result.error = "provider returned no output text"
+            return result
         except asyncio.TimeoutError:
             logger.debug(
                 "AgentAdapter(%s) timed out after %.1fs",
