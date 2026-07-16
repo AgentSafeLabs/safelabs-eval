@@ -320,6 +320,13 @@ Findings from red-teaming exercises conducted with this framework are published 
 
 ---
 
+## Ecosystem
+
+- **[safelabs-research](https://github.com/AgentSafeLabs/safelabs-research)** — attack taxonomy, advisories, and blog posts on AI agent security; the source for research findings published using this framework.
+- **[Blog](https://agentsafelabs.com/blog)** — research writeups from Safe Labs AI, including ["We Were Wrong About the UNCERTAIN Results — Here's What Actually Happened"](https://agentsafelabs.com/blog/we-were-wrong-about-the-uncertain-results-heres-what-actually-happened/), a public correction — with a dated addendum on the same page — of an earlier finding about this framework's own detector reliability.
+
+---
+
 ## Related Work
 
 - [OWASP Top 10 for LLM Applications](https://owasp.org/www-project-top-10-for-large-language-model-applications/)
