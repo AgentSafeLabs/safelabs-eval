@@ -56,7 +56,7 @@ safelabs run --target http://localhost:8000/chat --category ASI01 --timeout 60
 **Example report — agent under test (Claude Haiku, ASI01 Prompt Injection):**
 
 ```
-safelabs-eval v0.2.0
+safelabs-eval v0.2.2
 Target  : http://localhost:8000/chat
 Category: ASI01 (3 prompts)
 ────────────────────────────────────────────────────────────
@@ -317,6 +317,13 @@ pytest tests/ -v
 `safelabs-eval` is developed and maintained by [Safe Labs AI Inc.](https://agentsafelabs.com) as an independent third-party assurance tool for AI agent safety.
 
 Findings from red-teaming exercises conducted with this framework are published as research. If you discover novel attack patterns or agent vulnerabilities using `safelabs-eval`, please open an issue or reach out — responsible disclosure is appreciated and credited.
+
+Three papers in this project's research series document findings from
+this framework directly:
+
+- ["Pattern-Matching Failures in LLM Refusal Detection: A Case Study in Detector Reliability"](https://doi.org/10.6084/m9.figshare.33110315)
+- ["Does a Pattern-Matching Detector Fix Generalize? A Six-Model Replication and the Prompt Shapes That Break It"](https://doi.org/10.6084/m9.figshare.33110402)
+- ["Replicating a Detector-Calibration False-Positive Pattern in GPT-5.5 Prompt-Injection Verdicts Across a Second Model and Category"](https://doi.org/10.6084/m9.figshare.33110474)
 
 ---
 
