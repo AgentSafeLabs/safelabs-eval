@@ -325,6 +325,10 @@ this framework directly:
 - ["Does a Pattern-Matching Detector Fix Generalize? A Six-Model Replication and the Prompt Shapes That Break It"](https://doi.org/10.6084/m9.figshare.33110402)
 - ["Replicating a Detector-Calibration False-Positive Pattern in GPT-5.5 Prompt-Injection Verdicts Across a Second Model and Category"](https://doi.org/10.6084/m9.figshare.33110474)
 
+The exploratory run that motivated Paper A is documented in the original
+blog post: ["Why Claude Haiku Returned UNCERTAIN: Anatomy of an Indirect
+Prompt Injection in an Agentic System"](https://agentsafelabs.com/blog/why-claude-haiku-returned-uncertain-anatomy-of-an-indirect-prompt-injection-in-an-agentic-system/).
+
 ---
 
 ## Ecosystem
