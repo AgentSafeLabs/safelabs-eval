@@ -324,6 +324,7 @@ this framework directly:
 - ["Pattern-Matching Failures in LLM Refusal Detection: A Case Study in Detector Reliability"](https://doi.org/10.6084/m9.figshare.33110315)
 - ["Does a Pattern-Matching Detector Fix Generalize? A Six-Model Replication and the Prompt Shapes That Break It"](https://doi.org/10.6084/m9.figshare.33110402)
 - ["Replicating a Detector-Calibration False-Positive Pattern in GPT-5.5 Prompt-Injection Verdicts Across a Second Model and Category"](https://doi.org/10.6084/m9.figshare.33110474)
+- ["Cross-Framework Portability of Agentic AI Security: A Controlled, Payload-Verified Evaluation"](https://doi.org/10.6084/m9.figshare.33110642)
 
 The exploratory run that motivated Paper A is documented in the original
 blog post: ["Why Claude Haiku Returned UNCERTAIN: Anatomy of an Indirect
