@@ -72,10 +72,10 @@ async def test_run_eval_multiple_categories():
 @pytest.mark.asyncio
 async def test_run_eval_all_categories_by_default():
     result = await run_eval(_refusal_agent)
-    # 101 = 14 ASI01 + 13 ASI02 + 13 ASI03 (Stage-3 batch 1)
-    #         + 13 ASI04 + 13 ASI05 (Stage-3 batch 2)
-    #         + 13 ASI06 + 13 ASI10 (Stage-3 batch 3) + 3 x 3 others
-    assert result.total == 101
+    # 131 = 14 ASI01 + 9 x 13 (every other category at 13 after Stage 3:
+    #         ASI02/03 batch 1, ASI04/05 batch 2, ASI06/10 batch 3,
+    #         ASI07/08/09 batch 4)
+    assert result.total == 131
     assert len(result.categories_run) == 10
 
 
