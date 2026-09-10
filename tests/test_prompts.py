@@ -73,14 +73,33 @@ _ASI06_TOTAL = 13
 _ASI10_TOTAL = 13
 _STAGE3_BATCH3_IDS = _ASI06_BATCH_IDS | _ASI10_BATCH_IDS
 
+# ── Stage-3 batch 4 (v1.6.0, unreleased) -- FINAL Stage-3 batch ──────
+# Three 10-prompt category expansions: ASI07 (Trust Boundaries), ASI08
+# (Behavioral Drift) and ASI09 (Scope Violation), each ASI0x-004 ..
+# ASI0x-013, taking all three from 3 to 13. Same treatment as the
+# earlier batches: the original-corpus and prior-batch invariants filter
+# these ids out so they keep asserting on exactly the pre-existing set;
+# the batch gets its own dedicated tests further down.
+_ASI07_BATCH_IDS = frozenset(f"ASI07-{n:03d}" for n in range(4, 14))
+_ASI08_BATCH_IDS = frozenset(f"ASI08-{n:03d}" for n in range(4, 14))
+_ASI09_BATCH_IDS = frozenset(f"ASI09-{n:03d}" for n in range(4, 14))
+_ASI07_TOTAL = 13
+_ASI08_TOTAL = 13
+_ASI09_TOTAL = 13
+_STAGE3_BATCH4_IDS = _ASI07_BATCH_IDS | _ASI08_BATCH_IDS | _ASI09_BATCH_IDS
+
 # Every id added after the Stage-1 corpus of 30: the Stage-2 ASI01 pilot
-# plus Stage-3 batches 1, 2 and 3. Invariants that lock the original 30
+# plus Stage-3 batches 1 through 4. Invariants that lock the original 30
 # filter on this.
 _POST_STAGE1_IDS = (
-    _ASI01_PILOT_IDS | _STAGE3_BATCH1_IDS | _STAGE3_BATCH2_IDS | _STAGE3_BATCH3_IDS
+    _ASI01_PILOT_IDS
+    | _STAGE3_BATCH1_IDS
+    | _STAGE3_BATCH2_IDS
+    | _STAGE3_BATCH3_IDS
+    | _STAGE3_BATCH4_IDS
 )
 
-_LIBRARY_TOTAL = 101
+_LIBRARY_TOTAL = 131
 
 
 # ── existing coverage ─────────────────────────────────────────────────────
@@ -111,6 +130,9 @@ def test_three_prompts_per_category():
         PromptCategory.ASI05_TOOL_USE_SAFETY: _ASI05_TOTAL,    # Stage-3 batch 2
         PromptCategory.ASI06_DATA_PRIVACY: _ASI06_TOTAL,       # Stage-3 batch 3
         PromptCategory.ASI10_HALLUCINATION: _ASI10_TOTAL,      # Stage-3 batch 3
+        PromptCategory.ASI07_TRUST_BOUNDARIES: _ASI07_TOTAL,   # Stage-3 batch 4
+        PromptCategory.ASI08_BEHAVIORAL_DRIFT: _ASI08_TOTAL,   # Stage-3 batch 4
+        PromptCategory.ASI09_SCOPE_VIOLATION: _ASI09_TOTAL,    # Stage-3 batch 4
     }
     for cat in PromptCategory:
         assert len(lib.by_category(cat)) == expanded.get(cat, 3)
@@ -170,7 +192,7 @@ def test_difficulty_tier_respects_severity_floor():
 def test_difficulty_tier_spread_matches_migration():
     """The migrated 1.1.0 corpus is a fixed set; lock its tier distribution
     so an accidental bulk edit is caught. Everything added after Stage 1
-    (the Stage-2 ASI01 pilot and Stage-3 batches 1, 2 and 3) is excluded
+    (the Stage-2 ASI01 pilot and Stage-3 batches 1 through 4) is excluded
     here so this stays an assertion about exactly the original 30.
     """
     from collections import Counter
@@ -201,7 +223,7 @@ def test_all_current_prompts_are_original():
     provenance='original' by decision; their lineage is a code comment, not
     a field value. Post-Stage-1 additions are excluded -- the Stage-2 ASI01
     pilot contains a deliberate adaptation (ASI01-006), and Stage-3 batches
-    1, 2 and 3 have their own provenance tests -- so this stays an
+    1 through 4 have their own provenance tests -- so this stays an
     assertion about exactly the original 30.
     """
     for entry in get_library().entries:
@@ -629,5 +651,129 @@ def test_stage3_batch3_difficulty_spread():
     assert s10[DifficultyTier.TIER_3_ADAPTIVE] == 0
 
     for e in asi06 + asi10:
+        if e.severity == "critical":
+            assert e.difficulty_tier != DifficultyTier.TIER_1_OVERT, e.id
+
+
+# ── Stage-3 batch 4: ASI07 + ASI08 + ASI09 (v1.6.0, unreleased) ─────
+
+def _asi07_batch_entries():
+    return [e for e in get_library().entries if e.id in _ASI07_BATCH_IDS]
+
+
+def _asi08_batch_entries():
+    return [e for e in get_library().entries if e.id in _ASI08_BATCH_IDS]
+
+
+def _asi09_batch_entries():
+    return [e for e in get_library().entries if e.id in _ASI09_BATCH_IDS]
+
+
+def test_stage3_batch4_count_and_ids_contiguous():
+    lib = get_library()
+    assert len(lib) == _LIBRARY_TOTAL
+
+    for cat, total, ids in (
+        (PromptCategory.ASI07_TRUST_BOUNDARIES, _ASI07_TOTAL, _ASI07_BATCH_IDS),
+        (PromptCategory.ASI08_BEHAVIORAL_DRIFT, _ASI08_TOTAL, _ASI08_BATCH_IDS),
+        (PromptCategory.ASI09_SCOPE_VIOLATION, _ASI09_TOTAL, _ASI09_BATCH_IDS),
+    ):
+        entries = lib.by_category(cat)
+        assert len(entries) == total
+
+        batch_ids = {e.id for e in entries if e.id in ids}
+        assert batch_ids == set(ids)
+        assert len(ids) == 10
+
+        prefix = cat.value
+        nums = sorted(int(i.split("-")[1]) for i in batch_ids)
+        assert nums == list(range(4, 14)), (
+            f"{prefix} batch ids must be {prefix}-004..{prefix}-013 with no gaps"
+        )
+
+
+def test_stage3_batch4_category_correctness():
+    for e in _asi07_batch_entries():
+        assert e.category == PromptCategory.ASI07_TRUST_BOUNDARIES, e.id
+    for e in _asi08_batch_entries():
+        assert e.category == PromptCategory.ASI08_BEHAVIORAL_DRIFT, e.id
+    for e in _asi09_batch_entries():
+        assert e.category == PromptCategory.ASI09_SCOPE_VIOLATION, e.id
+
+
+def test_stage3_batch4_atlas_mapping_per_category():
+    """No batch-4 entry is UNMAPPED and none introduces a new id.
+    ASI07 draws only from {AML.T0010, AML.T0011.001} (supply-chain vs
+    malicious-package, per the Stage-1 caveat); ASI08 is exactly
+    ['AML.T0054'] (LLM Jailbreak) throughout; ASI09 is exactly
+    ['AML.T0053'] (AI Agent Tool Invocation) throughout. All ids are
+    already registered in KNOWN_ATLAS_TECHNIQUE_IDS.
+    """
+    asi07_allowed = {"AML.T0010", "AML.T0011.001"}
+    for e in _asi07_batch_entries():
+        assert e.atlas_technique_ids, e.id
+        assert UNMAPPED not in e.atlas_technique_ids, e.id
+        assert set(e.atlas_technique_ids) <= asi07_allowed, (
+            f"{e.id}: {e.atlas_technique_ids} outside the Stage-1 ASI07 set"
+        )
+        assert set(e.atlas_technique_ids) <= KNOWN_ATLAS_TECHNIQUE_IDS, e.id
+
+    for e in _asi08_batch_entries():
+        assert e.atlas_technique_ids == ["AML.T0054"], f"{e.id}: {e.atlas_technique_ids}"
+        assert set(e.atlas_technique_ids) <= KNOWN_ATLAS_TECHNIQUE_IDS, e.id
+
+    for e in _asi09_batch_entries():
+        assert e.atlas_technique_ids == ["AML.T0053"], f"{e.id}: {e.atlas_technique_ids}"
+        assert set(e.atlas_technique_ids) <= KNOWN_ATLAS_TECHNIQUE_IDS, e.id
+
+
+def test_stage3_batch4_asi07_package_prompts_mapped_to_malicious_package():
+    """The two ASI07 package / dependency prompts map to AML.T0011.001;
+    the other eight map to AML.T0010 as the documented nearest fit.
+    """
+    by_id = {e.id: e for e in _asi07_batch_entries()}
+    pkg = {i for i, e in by_id.items() if e.atlas_technique_ids == ["AML.T0011.001"]}
+    assert pkg == {"ASI07-005", "ASI07-010"}
+    for i, e in by_id.items():
+        if i not in pkg:
+            assert e.atlas_technique_ids == ["AML.T0010"], f"{i}: {e.atlas_technique_ids}"
+
+
+def test_stage3_batch4_provenance_all_original():
+    """All 30 batch-4 prompts are original text -- generic supply-chain /
+    trust, session-drift / jailbreak, and scope-violation scenarios with
+    no construction traceable to a specific named artefact, so none is an
+    adaptation.
+    """
+    for e in _asi07_batch_entries() + _asi08_batch_entries() + _asi09_batch_entries():
+        assert e.provenance == "original", f"{e.id}: {e.provenance!r}"
+        assert _PROVENANCE_RE.match(e.provenance), e.id
+
+
+def test_stage3_batch4_difficulty_spread():
+    """Locks each batch's rubric-derived tier distribution and re-checks
+    the critical-severity floor.
+      ASI07: tier_1 x3, tier_2 x6, tier_3 x1
+      ASI08: tier_1 x0, tier_2 x8, tier_3 x2
+      ASI09: tier_1 x3, tier_2 x5, tier_3 x2
+    """
+    from collections import Counter
+
+    s7 = Counter(e.difficulty_tier for e in _asi07_batch_entries())
+    assert s7[DifficultyTier.TIER_1_OVERT] == 3
+    assert s7[DifficultyTier.TIER_2_CONTEXTUAL] == 6
+    assert s7[DifficultyTier.TIER_3_ADAPTIVE] == 1
+
+    s8 = Counter(e.difficulty_tier for e in _asi08_batch_entries())
+    assert s8[DifficultyTier.TIER_1_OVERT] == 0
+    assert s8[DifficultyTier.TIER_2_CONTEXTUAL] == 8
+    assert s8[DifficultyTier.TIER_3_ADAPTIVE] == 2
+
+    s9 = Counter(e.difficulty_tier for e in _asi09_batch_entries())
+    assert s9[DifficultyTier.TIER_1_OVERT] == 3
+    assert s9[DifficultyTier.TIER_2_CONTEXTUAL] == 5
+    assert s9[DifficultyTier.TIER_3_ADAPTIVE] == 2
+
+    for e in _asi07_batch_entries() + _asi08_batch_entries() + _asi09_batch_entries():
         if e.severity == "critical":
             assert e.difficulty_tier != DifficultyTier.TIER_1_OVERT, e.id
