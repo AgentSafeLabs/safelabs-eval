@@ -342,8 +342,8 @@ Prompt Injection in an Agentic System"](https://agentsafelabs.com/blog/why-claud
 ## Related Work
 
 - [OWASP Top 10 for LLM Applications](https://owasp.org/www-project-top-10-for-large-language-model-applications/)
-- [Garak](https://github.com/leondz/garak) — LLM vulnerability scanner
-- [PyRIT](https://github.com/Azure/PyRIT) — Microsoft Python Risk Identification Toolkit
+- [Garak](https://github.com/NVIDIA/garak) — LLM vulnerability scanner
+- [PyRIT](https://github.com/microsoft/PyRIT) — Microsoft Python Risk Identification Toolkit
 - [Promptfoo](https://github.com/promptfoo/promptfoo) — LLM testing framework (acquired by OpenAI, March 2026)
 
 ---

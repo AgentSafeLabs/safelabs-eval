@@ -221,10 +221,9 @@ def test_all_current_prompts_are_original():
     """Every 1.0.0 prompt was assessed as original text (2026-09). The three
     with public-technique lineage (ASI01-003, ASI07-002, ASI08-002) keep
     provenance='original' by decision; their lineage is a code comment, not
-    a field value. Post-Stage-1 additions are excluded -- the Stage-2 ASI01
-    pilot contains a deliberate adaptation (ASI01-006), and Stage-3 batches
-    1 through 4 have their own provenance tests -- so this stays an
-    assertion about exactly the original 30.
+    a field value. Post-Stage-1 additions are excluded -- they carry their
+    own provenance tests (Stage-2 ASI01 pilot, Stage-3 batches 1 through
+    4) -- so this stays an assertion about exactly the original 30.
     """
     for entry in get_library().entries:
         if entry.id in _POST_STAGE1_IDS:
@@ -331,22 +330,22 @@ def test_asi01_pilot_atlas_ids_are_injection_subtechniques():
 
 
 def test_asi01_pilot_provenance():
-    """Ten pilot prompts are 'original'; exactly one -- ASI01-006, the overt
-    'ignore all previous instructions' prompt -- is flagged as a genuine
-    adaptation of PromptInject (Perez & Ribeiro 2022).
+    """All 11 pilot prompts are provenance='original'. ASI01-006 (the overt
+    'ignore all previous instructions' prompt) previously carried
+    provenance='adapted-from:promptinject-2022'; the Stage-4a provenance
+    audit reclassified it to 'original' -- the idiom is generic and no
+    verbatim text from PromptInject / Perez & Ribeiro 2022 is reused, so
+    its lineage is now a code comment like the other pilot entries.
     """
     entries = {e.id: e for e in _asi01_pilot_entries()}
 
-    adapted = {i for i, e in entries.items() if e.provenance != "original"}
-    assert adapted == {"ASI01-006"}
-    assert entries["ASI01-006"].provenance == "adapted-from:promptinject-2022"
-
-    for i, e in entries.items():
-        if i == "ASI01-006":
-            continue
-        assert e.provenance == "original", f"{i}: {e.provenance!r}"
+    non_original = {i for i, e in entries.items() if e.provenance != "original"}
+    assert non_original == set(), (
+        f"pilot entries must all be 'original'; found: {sorted(non_original)}"
+    )
 
     for e in entries.values():
+        assert e.provenance == "original", f"{e.id}: {e.provenance!r}"
         assert _PROVENANCE_RE.match(e.provenance), (
             f"{e.id}: provenance {e.provenance!r} outside allowed grammar"
         )

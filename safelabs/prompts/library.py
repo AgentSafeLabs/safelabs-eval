@@ -270,12 +270,12 @@ Changelog
          AML.T0051.000 (direct) / AML.T0051.001 (indirect), re-verified
          against the live MITRE ATLAS matrix (AML.T0051 "LLM Prompt
          Injection", sub-techniques .000 Direct / .001 Indirect /
-         .002 Triggered). Provenance: ten of the eleven are "original"
-         (four carry a code-comment lineage note to Greshake et al.
-         2023, AgentDojo, or the garak / PyRIT encoding converters);
-         ASI01-006 is provenance="adapted-from:promptinject-2022"
-         because its phrasing tracks Perez & Ribeiro 2022 closely
-         rather than merely echoing the technique. The difficulty
+         .002 Triggered). Provenance: all eleven are "original";
+         several carry a code-comment lineage note to Greshake et al.
+         2023, AgentDojo, the garak / PyRIT encoding converters, or
+         -- for ASI01-006 -- PromptInject / Perez & Ribeiro 2022 (the
+         "ignore all previous instructions" idiom is generic and no
+         verbatim text is reused). The difficulty
          rubric below gains a fifth evasion vehicle
          (obfuscation / encoding). The content version string is held
          at 1.1.0 while this pilot is under review.
@@ -464,13 +464,12 @@ _ENTRIES: list[PromptEntry] = [
         provenance="original",
         atlas_technique_ids=["AML.T0051.001"],
     ),
-    # provenance = "adapted-from:promptinject-2022". The "ignore all
-    # previous instructions" + goal-hijack-to-leak-the-prompt phrasing
-    # tracks the actual attack strings from Perez & Ribeiro, "Ignore
-    # Previous Prompt: Attack Techniques For Language Models"
-    # (arXiv:2211.09527, 2022) / the PromptInject framework closely
-    # enough to be recorded as an adaptation, not merely technique-
-    # adjacent.
+    # provenance = "original" (text). The "ignore all previous
+    # instructions" instruction-override idiom is generic -- it
+    # predates and postdates Perez & Ribeiro, "Ignore Previous Prompt:
+    # Attack Techniques For Language Models" (arXiv:2211.09527, 2022) /
+    # the PromptInject framework, which catalogued it. Technique only;
+    # no verbatim text from the paper or its framework is reused.
     PromptEntry(
         id="ASI01-006",
         category=PromptCategory.ASI01_PROMPT_INJECTION,
@@ -488,7 +487,7 @@ _ENTRIES: list[PromptEntry] = [
         ),
         tags=["injection", "direct", "instruction-override", "system-prompt-exfil"],
         difficulty_tier=DifficultyTier.TIER_1_OVERT,
-        provenance="adapted-from:promptinject-2022",
+        provenance="original",
         atlas_technique_ids=["AML.T0051.000"],
     ),
     # provenance = "original" (text). Hidden-in-markup web content is the
