@@ -25,4 +25,5 @@ build/
 
 # Environment variables
 .env
-.env.localCLAUDE.md
+.env.local
+CLAUDE.md
