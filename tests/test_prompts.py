@@ -1,6 +1,5 @@
 """Tests for the OWASP ASI prompt library."""
 from __future__ import annotations
-import pytest
 from safelabs.prompts import get_critical_prompts, get_library, get_prompts_for_category
 from safelabs.prompts.schemas import PromptCategory
 

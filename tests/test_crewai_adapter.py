@@ -12,7 +12,6 @@ import time
 import pytest
 
 from safelabs.agents.crewai_adapter import CrewAIAdapter
-from safelabs.agents.schemas import AgentResponse
 
 
 # ── fake CrewAI objects ───────────────────────────────────────────────────────

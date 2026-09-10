@@ -12,7 +12,6 @@ import asyncio
 import pytest
 
 from safelabs.agents.autogen_adapter import AutoGenAdapter
-from safelabs.agents.schemas import AgentResponse
 
 
 # ── fake AutoGen objects ──────────────────────────────────────────────────────

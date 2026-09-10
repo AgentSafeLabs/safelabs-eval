@@ -8,7 +8,6 @@ Uses Claude Haiku with a low max_tokens cap to keep the real API call cheap.
 Usage:
     python examples/crewai_example.py
 """
-import os
 
 from dotenv import load_dotenv
 

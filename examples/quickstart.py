@@ -5,7 +5,8 @@ Usage:
     python examples/quickstart.py
     TARGET_URL=http://my-agent/chat python examples/quickstart.py
 """
-import asyncio, os
+import asyncio
+import os
 from safelabs.agents import HttpAdapter
 from safelabs.prompts import get_prompts_for_category
 from safelabs.scoring import Scorer

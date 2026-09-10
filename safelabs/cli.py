@@ -1,12 +1,15 @@
 """safelabs/cli.py — command-line interface."""
 
 from __future__ import annotations
-import asyncio, json, logging, sys
+import asyncio
+import json
+import logging
+import sys
 import click
 from safelabs import __version__
 
 logger = logging.getLogger(__name__)
-from safelabs.prompts.loader import get_library, get_prompts_for_category
+from safelabs.prompts.loader import get_library
 from safelabs.prompts.schemas import PromptCategory
 from safelabs.scoring.models import VerdictLevel
 from safelabs.scoring.scorer import Scorer
