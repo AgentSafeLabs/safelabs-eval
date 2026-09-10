@@ -33,7 +33,26 @@ _APPROVED_UNMAPPED_CATEGORIES = {
 # tests further down.
 _ASI01_PILOT_IDS = frozenset(f"ASI01-{n:03d}" for n in range(4, 15))
 _ASI01_TOTAL = 14
-_LIBRARY_TOTAL = 41
+
+# ── Stage-3 batch 1 (v1.3.0, unreleased) ────────────────────────────────
+# Two 10-prompt category expansions: ASI02 (Insecure Output Handling) and
+# ASI03 (Excessive Agency), each ASI0x-004 .. ASI0x-013, taking both
+# categories from 3 to 13. Same treatment as the Stage-2 pilot: the
+# original-corpus and pilot invariants filter these ids out so they keep
+# asserting on exactly the pre-existing set; the batches get their own
+# dedicated tests further down.
+_ASI02_BATCH_IDS = frozenset(f"ASI02-{n:03d}" for n in range(4, 14))
+_ASI03_BATCH_IDS = frozenset(f"ASI03-{n:03d}" for n in range(4, 14))
+_ASI02_TOTAL = 13
+_ASI03_TOTAL = 13
+_STAGE3_BATCH1_IDS = _ASI02_BATCH_IDS | _ASI03_BATCH_IDS
+
+# Every id added after the Stage-1 corpus of 30: the Stage-2 ASI01 pilot
+# plus Stage-3 batch 1. Invariants that lock the original 30 filter on
+# this.
+_POST_STAGE1_IDS = _ASI01_PILOT_IDS | _STAGE3_BATCH1_IDS
+
+_LIBRARY_TOTAL = 61
 
 
 # ── existing coverage ─────────────────────────────────────────────────────
@@ -56,12 +75,13 @@ def test_all_categories_present():
 
 def test_three_prompts_per_category():
     lib = get_library()
+    expanded = {
+        PromptCategory.ASI01_PROMPT_INJECTION: _ASI01_TOTAL,  # Stage-2 pilot
+        PromptCategory.ASI02_INSECURE_OUTPUT: _ASI02_TOTAL,   # Stage-3 batch 1
+        PromptCategory.ASI03_EXCESSIVE_AGENCY: _ASI03_TOTAL,  # Stage-3 batch 1
+    }
     for cat in PromptCategory:
-        if cat is PromptCategory.ASI01_PROMPT_INJECTION:
-            # ASI01 carries the Stage-2 pilot batch on top of its 3 originals.
-            assert len(lib.by_category(cat)) == _ASI01_TOTAL
-        else:
-            assert len(lib.by_category(cat)) == 3
+        assert len(lib.by_category(cat)) == expanded.get(cat, 3)
 
 
 def test_get_prompts_for_category_string():
@@ -117,15 +137,16 @@ def test_difficulty_tier_respects_severity_floor():
 
 def test_difficulty_tier_spread_matches_migration():
     """The migrated 1.1.0 corpus is a fixed set; lock its tier distribution
-    so an accidental bulk edit is caught. The Stage-2 ASI01 pilot batch is
-    excluded here so this stays an assertion about exactly the original 30.
+    so an accidental bulk edit is caught. Everything added after Stage 1
+    (the Stage-2 ASI01 pilot and Stage-3 batch 1) is excluded here so this
+    stays an assertion about exactly the original 30.
     """
     from collections import Counter
 
     spread = Counter(
         e.difficulty_tier
         for e in get_library().entries
-        if e.id not in _ASI01_PILOT_IDS
+        if e.id not in _POST_STAGE1_IDS
     )
     assert spread[DifficultyTier.TIER_1_OVERT] == 10
     assert spread[DifficultyTier.TIER_2_CONTEXTUAL] == 16
@@ -146,11 +167,13 @@ def test_all_current_prompts_are_original():
     """Every 1.0.0 prompt was assessed as original text (2026-09). The three
     with public-technique lineage (ASI01-003, ASI07-002, ASI08-002) keep
     provenance='original' by decision; their lineage is a code comment, not
-    a field value. The Stage-2 ASI01 pilot batch is excluded -- it contains
-    a deliberate adaptation (ASI01-006) and has its own provenance test.
+    a field value. Post-Stage-1 additions are excluded -- the Stage-2 ASI01
+    pilot contains a deliberate adaptation (ASI01-006), and Stage-3 batch 1
+    has its own provenance test -- so this stays an assertion about exactly
+    the original 30.
     """
     for entry in get_library().entries:
-        if entry.id in _ASI01_PILOT_IDS:
+        if entry.id in _POST_STAGE1_IDS:
             continue
         assert entry.provenance == "original", (
             f"{entry.id}: unexpected non-original provenance {entry.provenance!r}"
@@ -288,5 +311,93 @@ def test_asi01_pilot_difficulty_spread():
     assert spread[DifficultyTier.TIER_3_ADAPTIVE] == 4
 
     for e in pilot:
+        if e.severity == "critical":
+            assert e.difficulty_tier != DifficultyTier.TIER_1_OVERT, e.id
+
+
+# ── Stage-3 batch 1: ASI02 + ASI03 (v1.3.0, unreleased) ─────────────────
+
+def _asi02_batch_entries():
+    return [e for e in get_library().entries if e.id in _ASI02_BATCH_IDS]
+
+
+def _asi03_batch_entries():
+    return [e for e in get_library().entries if e.id in _ASI03_BATCH_IDS]
+
+
+def test_stage3_batch1_count_and_ids_contiguous():
+    lib = get_library()
+    assert len(lib) == _LIBRARY_TOTAL
+
+    for cat, total, ids in (
+        (PromptCategory.ASI02_INSECURE_OUTPUT, _ASI02_TOTAL, _ASI02_BATCH_IDS),
+        (PromptCategory.ASI03_EXCESSIVE_AGENCY, _ASI03_TOTAL, _ASI03_BATCH_IDS),
+    ):
+        entries = lib.by_category(cat)
+        assert len(entries) == total
+
+        batch_ids = {e.id for e in entries if e.id in ids}
+        assert batch_ids == set(ids)
+        assert len(ids) == 10
+
+        prefix = cat.value
+        nums = sorted(int(i.split("-")[1]) for i in batch_ids)
+        assert nums == list(range(4, 14)), (
+            f"{prefix} batch ids must be {prefix}-004..{prefix}-013 with no gaps"
+        )
+
+
+def test_stage3_batch1_category_correctness():
+    for e in _asi02_batch_entries():
+        assert e.category == PromptCategory.ASI02_INSECURE_OUTPUT, e.id
+    for e in _asi03_batch_entries():
+        assert e.category == PromptCategory.ASI03_EXCESSIVE_AGENCY, e.id
+
+
+def test_stage3_batch1_atlas_mapping_per_category():
+    """ASI02 has no clean ATLAS technique -- every batch entry is exactly
+    ['UNMAPPED'] (never mixed, never a real id). Every ASI03 batch entry
+    maps to exactly ['AML.T0053'] (AI Agent Tool Invocation), which is
+    already registered in KNOWN_ATLAS_TECHNIQUE_IDS.
+    """
+    for e in _asi02_batch_entries():
+        assert e.atlas_technique_ids == [UNMAPPED], f"{e.id}: {e.atlas_technique_ids}"
+
+    for e in _asi03_batch_entries():
+        assert e.atlas_technique_ids == ["AML.T0053"], f"{e.id}: {e.atlas_technique_ids}"
+        assert set(e.atlas_technique_ids) <= KNOWN_ATLAS_TECHNIQUE_IDS, e.id
+
+
+def test_stage3_batch1_provenance_all_original():
+    """All 20 Stage-3 batch-1 prompts are original text -- generic
+    CWE- / OWASP-class scenarios with no construction traceable to a
+    specific named research artefact, so none is an adaptation.
+    """
+    for e in _asi02_batch_entries() + _asi03_batch_entries():
+        assert e.provenance == "original", f"{e.id}: {e.provenance!r}"
+        assert _PROVENANCE_RE.match(e.provenance), e.id
+
+
+def test_stage3_batch1_difficulty_spread():
+    """Locks each batch's rubric-derived tier distribution and re-checks
+    the critical-severity floor.
+      ASI02: tier_1 x7, tier_2 x2, tier_3 x1
+      ASI03: tier_1 x4, tier_2 x5, tier_3 x1
+    """
+    from collections import Counter
+
+    asi02 = _asi02_batch_entries()
+    s2 = Counter(e.difficulty_tier for e in asi02)
+    assert s2[DifficultyTier.TIER_1_OVERT] == 7
+    assert s2[DifficultyTier.TIER_2_CONTEXTUAL] == 2
+    assert s2[DifficultyTier.TIER_3_ADAPTIVE] == 1
+
+    asi03 = _asi03_batch_entries()
+    s3 = Counter(e.difficulty_tier for e in asi03)
+    assert s3[DifficultyTier.TIER_1_OVERT] == 4
+    assert s3[DifficultyTier.TIER_2_CONTEXTUAL] == 5
+    assert s3[DifficultyTier.TIER_3_ADAPTIVE] == 1
+
+    for e in asi02 + asi03:
         if e.severity == "critical":
             assert e.difficulty_tier != DifficultyTier.TIER_1_OVERT, e.id
