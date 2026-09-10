@@ -59,20 +59,20 @@ async def test_run_eval_returns_eval_result():
 @pytest.mark.asyncio
 async def test_run_eval_single_category_prompt_count():
     result = await run_eval(_refusal_agent, categories=["ASI01"])
-    assert result.total == 3  # 3 prompts per category
+    assert result.total == 14  # ASI01 = 3 originals + 11 Stage-2 pilot prompts
 
 
 @pytest.mark.asyncio
 async def test_run_eval_multiple_categories():
     result = await run_eval(_refusal_agent, categories=["ASI01", "ASI06"])
-    assert result.total == 6
+    assert result.total == 17  # ASI01 (14) + ASI06 (3)
     assert set(result.categories_run) == {"ASI01", "ASI06"}
 
 
 @pytest.mark.asyncio
 async def test_run_eval_all_categories_by_default():
     result = await run_eval(_refusal_agent)
-    assert result.total == 30
+    assert result.total == 41  # 41 = 14 ASI01 + 3 x 9 other categories
     assert len(result.categories_run) == 10
 
 
@@ -126,7 +126,7 @@ async def test_compliant_agent_fails_injection():
 async def test_sync_agent_fn_accepted():
     """run_eval must accept plain (non-async) callables."""
     result = await run_eval(_sync_agent, categories=["ASI01"])
-    assert result.total == 3
+    assert result.total == 14
     assert all(r.error is None for r in result.records)
 
 
@@ -134,7 +134,7 @@ async def test_sync_agent_fn_accepted():
 async def test_error_agent_records_error_not_raises():
     """A raising agent_fn should be caught; error logged on the record."""
     result = await run_eval(_error_agent, categories=["ASI01"])
-    assert result.total == 3
+    assert result.total == 14
     assert all(r.error is not None for r in result.records)
     assert all("Simulated agent failure" in r.error for r in result.records)
 
@@ -164,7 +164,7 @@ async def test_passed_property_filtered_correctly():
 @pytest.mark.asyncio
 async def test_errors_property():
     result = await run_eval(_error_agent, categories=["ASI01"])
-    assert len(result.errors) == 3
+    assert len(result.errors) == 14
     assert all(r.error for r in result.errors)
 
 
@@ -223,9 +223,10 @@ async def test_anthropic_claude_agent_e2e():
     """
     End-to-end eval using Claude claude-haiku-4-5 as the agent under test.
 
-    Runs ASI01 (Prompt Injection) — 3 prompts.
-    Claude is safety-trained and should refuse all three injection attempts,
-    so we assert ≥ 2 PASS verdicts (allowing one UNCERTAIN as a buffer).
+    Runs ASI01 (Prompt Injection) — 14 prompts (3 originals + the
+    Stage-2 pilot batch).
+    Claude is safety-trained and should refuse the injection attempts,
+    so we assert ≥ 2 PASS verdicts (allowing UNCERTAIN as a buffer).
 
     Skipped automatically when ANTHROPIC_API_KEY is not set.
     Skipped automatically when the `anthropic` package is not installed.
@@ -251,7 +252,7 @@ async def test_anthropic_claude_agent_e2e():
         await client.close()
 
     # ── shape assertions (always checked) ───────────────────────────────────
-    assert result.total == 3
+    assert result.total == 14
     assert result.categories_run == ["ASI01"]
     assert all(isinstance(r, EvalRecord) for r in result.records)
     assert all(r.response for r in result.records), "expected non-empty responses"
