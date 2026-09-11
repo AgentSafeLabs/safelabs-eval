@@ -110,7 +110,7 @@ def test_library_loads():
 
 def test_library_version():
     lib = get_library()
-    assert lib.version == "1.1.0"
+    assert lib.version == "1.6.0"
     assert lib.schema_version == "1.1.0"
 
 

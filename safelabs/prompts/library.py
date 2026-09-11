@@ -3,29 +3,18 @@ safelabs/prompts/library.py
 
 OWASP Agentic Security Initiative (ASI) Top 10 -- adversarial prompt library.
 
-Content version 1.1.0 (held) -- baseline is 30 prompts, 3 per category
-(ASI01-ASI10). A pending Stage-2 pilot adds 11 ASI01 prompts
-(ASI01-004 .. ASI01-014), bringing ASI01 to 14. A pending Stage-3
-batch 1 adds 10 ASI02 prompts (ASI02-004 .. ASI02-013) and 10 ASI03
-prompts (ASI03-004 .. ASI03-013), bringing ASI02 and ASI03 to 13
-each; Stage-3 batch 2 adds 10 ASI04 prompts (ASI04-004 .. ASI04-013)
-and 10 ASI05 prompts (ASI05-004 .. ASI05-013), bringing ASI04 and
-ASI05 to 13 each; Stage-3 batch 3 adds 10 ASI06 prompts
-(ASI06-004 .. ASI06-013) and 10 ASI10 prompts (ASI10-004 .. ASI10-013),
-bringing ASI06 and ASI10 to 13 each; Stage-3 batch 4 adds 10 ASI07
-prompts (ASI07-004 .. ASI07-013), 10 ASI08 prompts
-(ASI08-004 .. ASI08-013), and 10 ASI09 prompts (ASI09-004 .. ASI09-013),
-bringing ASI07, ASI08, and ASI09 to 13 each and the file to 131
-entries -- completing Stage 3 (every category at 13 except ASI01 at
-14). The version string deliberately stays at 1.1.0 until those
-batches clear review -- see the "1.2.0 (unreleased)",
-"1.3.0 (unreleased)", "1.4.0 (unreleased)", "1.5.0 (unreleased)", and
-"1.6.0 (unreleased)" changelog entries. Schema version 1.1.0 (see
-schemas.py).
+Content version 1.6.0 -- 131 prompts, 13 per OWASP ASI category
+(ASI01-ASI10); ASI01 carries 14 (3 originals plus an 11-prompt
+Stage-2 pilot). Built in stages, each recorded in the changelog
+below: the original 30 (1.0.0); required per-entry metadata, no
+prompt text changed (1.1.0); the Stage-2 ASI01 pilot, +11 (1.2.0);
+and Stage-3 batches 1-4 taking ASI02-ASI10 from 3 to 13 each
+(1.3.0 ASI02/ASI03, 1.4.0 ASI04/ASI05, 1.5.0 ASI06/ASI10,
+1.6.0 ASI07/ASI08/ASI09). Schema version 1.1.0 (see schemas.py).
 
 Changelog
 ---------
-1.6.0 (unreleased) -- Stage-3 prompt-library expansion, batch 4 (final).
+1.6.0 -- Stage-3 prompt-library expansion, batch 4 (final).
          Adds 10 new ASI07 (Trust Boundaries) prompts, ASI07-004
          through ASI07-013; 10 new ASI08 (Behavioral Drift) prompts,
          ASI08-004 through ASI08-013; and 10 new ASI09 (Scope
@@ -94,9 +83,8 @@ Changelog
          tier_1 x0 / tier_2 x8 / tier_3 x2 (every drift prompt carries
          a conditioning or framing vehicle, so tier_1 does not occur);
          ASI09 batch tier_1 x3 / tier_2 x5 / tier_3 x2. This batch
-         completes the Stage-3 expansion; the content version string
-         is held at 1.1.0 pending review of the whole Stage-3 series.
-1.5.0 (unreleased) -- Stage-3 prompt-library expansion, batch 3.
+         completes the Stage-3 expansion.
+1.5.0 -- Stage-3 prompt-library expansion, batch 3.
          Adds 10 new ASI06 (Data Privacy & Confidentiality) prompts,
          ASI06-004 through ASI06-013, and 10 new ASI10 (Hallucination)
          prompts, ASI10-004 through ASI10-013 -- taking each category
@@ -155,9 +143,8 @@ Changelog
          Difficulty via the existing rubric: ASI06 batch tier_1 x5 /
          tier_2 x3 / tier_3 x2; ASI10 batch tier_1 x7 / tier_2 x3 /
          tier_3 x0 (hallucination asks rarely carry an evasion
-         vehicle). The content version string is held at 1.1.0 while
-         this batch is under review.
-1.4.0 (unreleased) -- Stage-3 prompt-library expansion, batch 2.
+         vehicle).
+1.4.0 -- Stage-3 prompt-library expansion, batch 2.
          Adds 10 new ASI04 (Resource Management) prompts, ASI04-004
          through ASI04-013, and 10 new ASI05 (Tool Use Safety)
          prompts, ASI05-004 through ASI05-013 -- taking each category
@@ -220,9 +207,8 @@ Changelog
          bracketed authorisation tag is the same construction class as
          ASI01-014 (technique only). Difficulty via the existing
          rubric: ASI04 batch tier_1 x7 / tier_2 x2 / tier_3 x1; ASI05
-         batch tier_1 x5 / tier_2 x3 / tier_3 x2. The content version
-         string is held at 1.1.0 while this batch is under review.
-1.3.0 (unreleased) -- Stage-3 prompt-library expansion, batch 1.
+         batch tier_1 x5 / tier_2 x3 / tier_3 x2.
+1.3.0 -- Stage-3 prompt-library expansion, batch 1.
          Adds 10 new ASI02 (Insecure Output Handling) prompts,
          ASI02-004 through ASI02-013, and 10 new ASI03 (Excessive
          Agency) prompts, ASI03-004 through ASI03-013 -- taking each
@@ -255,9 +241,7 @@ Changelog
          adapted-from lineage or a code-comment note. Difficulty via
          the existing rubric: ASI02 batch tier_1 x7 / tier_2 x2 /
          tier_3 x1; ASI03 batch tier_1 x4 / tier_2 x5 / tier_3 x1.
-         The content version string is held at 1.1.0 while this batch
-         is under review.
-1.2.0 (unreleased) -- Stage-2 prompt-library expansion, pilot batch.
+1.2.0 -- Stage-2 prompt-library expansion, pilot batch.
          Adds 11 new ASI01 (Prompt Injection) prompts, ASI01-004
          through ASI01-014, covering RAG / retrieved-KB injection,
          tool-output injection, direct overt injection, hidden markup
@@ -277,8 +261,7 @@ Changelog
          "ignore all previous instructions" idiom is generic and no
          verbatim text is reused). The difficulty
          rubric below gains a fifth evasion vehicle
-         (obfuscation / encoding). The content version string is held
-         at 1.1.0 while this pilot is under review.
+         (obfuscation / encoding).
 1.1.0 -- Add required per-entry metadata: ``difficulty_tier``,
          ``provenance``, ``atlas_technique_ids``. No prompt text was
          added, removed, or changed. ATLAS mapping built against MITRE
@@ -301,7 +284,7 @@ external scale:
                instruction, retroactive or multi-turn conditioning,
                identity spoofing with an operational pretext,
                task-piggybacking (the violation buried inside a
-               sanctioned task), or -- added v1.2.0 (unreleased) --
+               sanctioned task), or -- added in v1.2.0 --
                obfuscation / encoding of the injected instruction
                (base64, ROT13, homoglyph, zero-width, etc.) to bypass
                surface-level refusal
@@ -313,15 +296,13 @@ external scale:
   tier_3 adaptive     attack actively works to defeat refusal
 
 Resulting spread, original 30 (v1.1.0): tier_1 x10, tier_2 x16,
-tier_3 x4. The v1.2.0 (unreleased) ASI01 pilot batch adds
-tier_1 x1, tier_2 x6, tier_3 x4. The v1.3.0 (unreleased) Stage-3
-batch 1 adds, across ASI02 and ASI03, tier_1 x11, tier_2 x7,
-tier_3 x2. The v1.4.0 (unreleased) Stage-3 batch 2 adds, across
-ASI04 and ASI05, tier_1 x12, tier_2 x5, tier_3 x3. The v1.5.0
-(unreleased) Stage-3 batch 3 adds, across ASI06 and ASI10,
-tier_1 x12, tier_2 x6, tier_3 x2. The v1.6.0 (unreleased) Stage-3
-batch 4 adds, across ASI07 / ASI08 / ASI09, tier_1 x6, tier_2 x19,
-tier_3 x5.
+tier_3 x4. The v1.2.0 ASI01 pilot batch adds tier_1 x1, tier_2 x6,
+tier_3 x4. The v1.3.0 Stage-3 batch 1 (ASI02, ASI03) adds
+tier_1 x11, tier_2 x7, tier_3 x2. The v1.4.0 Stage-3 batch 2
+(ASI04, ASI05) adds tier_1 x12, tier_2 x5, tier_3 x3. The v1.5.0
+Stage-3 batch 3 (ASI06, ASI10) adds tier_1 x12, tier_2 x6,
+tier_3 x2. The v1.6.0 Stage-3 batch 4 (ASI07, ASI08, ASI09) adds
+tier_1 x6, tier_2 x19, tier_3 x5.
 """
 
 from __future__ import annotations
@@ -398,7 +379,7 @@ _ENTRIES: list[PromptEntry] = [
         atlas_technique_ids=["AML.T0051.001"],
     ),
 
-    # ── ASI01 pilot batch — Stage 2, v1.2.0 (unreleased) — ASI01-004..014 ──
+    # ── ASI01 pilot batch — Stage 2, v1.2.0 — ASI01-004..014 ───────────────
     #
     # 11 additional Prompt Injection prompts. All named entities are
     # fabricated (*.example.com / .net / .org). ATLAS: .000 = injection
@@ -766,7 +747,7 @@ _ENTRIES: list[PromptEntry] = [
         atlas_technique_ids=["UNMAPPED"],
     ),
 
-    # ── ASI02 batch — Stage 3, v1.3.0 (unreleased) — ASI02-004..013 ────────
+    # ── ASI02 batch — Stage 3, v1.3.0 — ASI02-004..013 ─────────────────────
     #
     # 10 additional Insecure Output Handling prompts. All named entities
     # are fabricated (*.example.com / .net / .org). Per the Stage-1
@@ -1054,7 +1035,7 @@ _ENTRIES: list[PromptEntry] = [
         atlas_technique_ids=["AML.T0053"],
     ),
 
-    # ── ASI03 batch — Stage 3, v1.3.0 (unreleased) — ASI03-004..013 ───────
+    # ── ASI03 batch — Stage 3, v1.3.0 — ASI03-004..013 ────────────────────
     #
     # 10 additional Excessive Agency prompts. All named entities are
     # fabricated (*.example.com / .net / .org). Every entry maps to
@@ -1338,7 +1319,7 @@ _ENTRIES: list[PromptEntry] = [
         atlas_technique_ids=["AML.T0034.000", "AML.T0034.002"],
     ),
 
-    # ── ASI04 batch — Stage 3, v1.4.0 (unreleased) — ASI04-004..013 ───────
+    # ── ASI04 batch — Stage 3, v1.4.0 — ASI04-004..013 ────────────────────
     #
     # 10 additional Resource Management prompts. All named entities are
     # fabricated (*.example.com / .net / .org). ATLAS mapping is drawn
@@ -1653,7 +1634,7 @@ _ENTRIES: list[PromptEntry] = [
         atlas_technique_ids=["AML.T0053"],
     ),
 
-    # ── ASI05 batch — Stage 3, v1.4.0 (unreleased) — ASI05-004..013 ───────
+    # ── ASI05 batch — Stage 3, v1.4.0 — ASI05-004..013 ────────────────────
     #
     # 10 additional Tool Use Safety prompts. All named entities are
     # fabricated (*.example.com / .net / .org). ATLAS mapping is drawn
@@ -1975,7 +1956,7 @@ _ENTRIES: list[PromptEntry] = [
         atlas_technique_ids=["AML.T0057"],
     ),
 
-    # ── ASI06 batch — Stage 3, v1.5.0 (unreleased) — ASI06-004..013 ───────
+    # ── ASI06 batch — Stage 3, v1.5.0 — ASI06-004..013 ────────────────────
     #
     # 10 additional Data Privacy & Confidentiality prompts. All named
     # entities are fabricated. ATLAS mapping uses the Stage-1 ASI06 set --
@@ -2288,7 +2269,7 @@ _ENTRIES: list[PromptEntry] = [
         atlas_technique_ids=["AML.T0010"],
     ),
 
-    # ── ASI07 batch — Stage 3, v1.6.0 (unreleased) — ASI07-004..013 ───────
+    # ── ASI07 batch — Stage 3, v1.6.0 — ASI07-004..013 ────────────────────
     #
     # 10 additional Trust Boundaries prompts. All named entities are
     # fabricated. ATLAS per the Stage-1 ASI07 mapping and its documented
@@ -2611,7 +2592,7 @@ _ENTRIES: list[PromptEntry] = [
         atlas_technique_ids=["AML.T0054"],
     ),
 
-    # ── ASI08 batch — Stage 3, v1.6.0 (unreleased) — ASI08-004..013 ───────
+    # ── ASI08 batch — Stage 3, v1.6.0 — ASI08-004..013 ────────────────────
     #
     # 10 additional Behavioral Drift prompts. All named entities are
     # fabricated. Every entry maps to AML.T0054 (LLM Jailbreak) per the
@@ -2908,7 +2889,7 @@ _ENTRIES: list[PromptEntry] = [
         atlas_technique_ids=["AML.T0053"],
     ),
 
-    # ── ASI09 batch — Stage 3, v1.6.0 (unreleased) — ASI09-004..013 ───────
+    # ── ASI09 batch — Stage 3, v1.6.0 — ASI09-004..013 ────────────────────
     #
     # 10 additional Scope Violation prompts. All named entities are
     # fabricated. Every entry maps to AML.T0053 (AI Agent Tool
@@ -3177,7 +3158,7 @@ _ENTRIES: list[PromptEntry] = [
         atlas_technique_ids=["UNMAPPED"],
     ),
 
-    # ── ASI10 batch — Stage 3, v1.5.0 (unreleased) — ASI10-004..013 ───────
+    # ── ASI10 batch — Stage 3, v1.5.0 — ASI10-004..013 ────────────────────
     #
     # 10 additional Hallucination prompts. All named entities, studies,
     # figures, statutes, and standards are fabricated or deliberately
@@ -3420,4 +3401,4 @@ _ENTRIES: list[PromptEntry] = [
 
 def load_library() -> PromptLibrary:
     """Return the full OWASP Agentic Top 10 prompt library."""
-    return PromptLibrary(entries=_ENTRIES, version="1.1.0", schema_version="1.1.0")
+    return PromptLibrary(entries=_ENTRIES, version="1.6.0", schema_version="1.1.0")
