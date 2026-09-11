@@ -51,6 +51,7 @@ dev = [
 
 [project.scripts]
 safelabs = "safelabs.cli:main"
+agentport-bench = "agentport_bench.cli:main"
 
 [project.urls]
 Homepage = "https://github.com/AgentSafeLabs/safelabs-eval"
@@ -58,7 +59,7 @@ Documentation = "https://github.com/AgentSafeLabs/safelabs-eval#readme"
 "Bug Tracker" = "https://github.com/AgentSafeLabs/safelabs-eval/issues"
 
 [tool.hatch.build.targets.wheel]
-packages = ["safelabs"]
+packages = ["safelabs", "agentport_bench"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
