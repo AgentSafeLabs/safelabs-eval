@@ -5,6 +5,15 @@ package in this repository: a schema, submission harness, validator, and CLI
 for a public, multi-contributor, cross-framework agent-safety benchmark built
 on safelabs-eval's OWASP ASI prompt library and scoring pipeline.
 
+**Paper E** — "AgentPort-Bench: An Eight-Framework Extension of a
+Cross-Framework Agentic Security Portability Evaluation" (arXiv preprint,
+submission `#8074326`, cs.CR) — discusses this package and the 8-framework
+CFPS extension it's positioned alongside. That extension's actual
+reconstruction/validation work lives in `agentdojo-x`'s
+`analysis/cfps_8fw_extension/` (see that folder's `PROVENANCE.md`) — it was
+run on `agentdojo-x`'s own harness, not this package (§2 of this document
+explains why `agentport_bench` wasn't the harness used for that run).
+
 `agentport_bench` is implemented and tested (see `tests/test_agentport_bench_*.py`).
 The separate public **results repository** that would actually host
 contributor submissions and a leaderboard does not exist yet — that is future
