@@ -139,7 +139,7 @@ def test_run_dry_run_restricts_scope(runner, tmp_path):
     assert result.exit_code == 0, result.output
     rows = [json.loads(line) for line in out.read_text().splitlines()]
     assert all(r["category"] == "ASI01" for r in rows)
-    assert len(rows) == 14  # ASI01 has 14 prompts
+    assert len(rows) == 18  # ASI01 has 18 prompts (post-v1.7.0)
 
 
 def test_run_resume_default_skips_second_invocation(runner, tmp_path):

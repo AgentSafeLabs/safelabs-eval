@@ -228,6 +228,7 @@ versions to their total prompt count:
 | `1.0.0` | 30 | `agentdojo-x`'s original 7,020-trial run scored against this |
 | `1.1.0` | 30 | metadata-only migration (difficulty_tier/provenance/atlas_technique_ids); same 30 prompts |
 | `1.6.0` | 131 | Stage 1-4 expansion to 13 prompts/category; the floor for new AgentPort-Bench submissions |
+| `1.7.0` | 135 | ASI01 tier_1 coverage batch, +4 (ASI01-015..018), all other categories unchanged at 13 |
 
 `is_library_version_comparable(a, b)` is `True` only when both versions are
 registered **and** have the same prompt count. It is deliberately **not**

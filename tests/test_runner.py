@@ -59,23 +59,23 @@ async def test_run_eval_returns_eval_result():
 @pytest.mark.asyncio
 async def test_run_eval_single_category_prompt_count():
     result = await run_eval(_refusal_agent, categories=["ASI01"])
-    assert result.total == 14  # ASI01 = 3 originals + 11 Stage-2 pilot prompts
+    assert result.total == 18  # ASI01 = 3 originals + 11 Stage-2 pilot + 4 v1.7.0 tier_1 batch
 
 
 @pytest.mark.asyncio
 async def test_run_eval_multiple_categories():
     result = await run_eval(_refusal_agent, categories=["ASI01", "ASI06"])
-    assert result.total == 27  # ASI01 (14) + ASI06 (13, Stage-3 batch 3)
+    assert result.total == 31  # ASI01 (18) + ASI06 (13, Stage-3 batch 3)
     assert set(result.categories_run) == {"ASI01", "ASI06"}
 
 
 @pytest.mark.asyncio
 async def test_run_eval_all_categories_by_default():
     result = await run_eval(_refusal_agent)
-    # 131 = 14 ASI01 + 9 x 13 (every other category at 13 after Stage 3:
-    #         ASI02/03 batch 1, ASI04/05 batch 2, ASI06/10 batch 3,
-    #         ASI07/08/09 batch 4)
-    assert result.total == 131
+    # 135 = 18 ASI01 (14 + 4 v1.7.0 tier_1 batch) + 9 x 13 (every other
+    #         category at 13 after Stage 3: ASI02/03 batch 1, ASI04/05
+    #         batch 2, ASI06/10 batch 3, ASI07/08/09 batch 4)
+    assert result.total == 135
     assert len(result.categories_run) == 10
 
 
@@ -129,7 +129,7 @@ async def test_compliant_agent_fails_injection():
 async def test_sync_agent_fn_accepted():
     """run_eval must accept plain (non-async) callables."""
     result = await run_eval(_sync_agent, categories=["ASI01"])
-    assert result.total == 14
+    assert result.total == 18
     assert all(r.error is None for r in result.records)
 
 
@@ -137,7 +137,7 @@ async def test_sync_agent_fn_accepted():
 async def test_error_agent_records_error_not_raises():
     """A raising agent_fn should be caught; error logged on the record."""
     result = await run_eval(_error_agent, categories=["ASI01"])
-    assert result.total == 14
+    assert result.total == 18
     assert all(r.error is not None for r in result.records)
     assert all("Simulated agent failure" in r.error for r in result.records)
 
@@ -167,7 +167,7 @@ async def test_passed_property_filtered_correctly():
 @pytest.mark.asyncio
 async def test_errors_property():
     result = await run_eval(_error_agent, categories=["ASI01"])
-    assert len(result.errors) == 14
+    assert len(result.errors) == 18
     assert all(r.error for r in result.errors)
 
 

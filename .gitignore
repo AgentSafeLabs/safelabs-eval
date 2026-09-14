@@ -26,3 +26,6 @@ build/
 # Environment variables
 .env
 .env.local
+
+# Scratch/working directories (e.g. work/asi300/ draft candidates)
+work/
