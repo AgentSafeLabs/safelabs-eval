@@ -29,3 +29,10 @@ build/
 
 # Scratch/working directories (e.g. work/asi300/ draft candidates)
 work/
+
+# Raw model completions to adversarial prompts (prompt injection,
+# jailbreak, system-prompt extraction, etc.) -- sensitive content,
+# same category as agentdojo-x's 7,020-trial raw file, which is
+# explicitly held back from that repo's own public release.
+# safelabs-eval is public -- this must never enter git history.
+results/
