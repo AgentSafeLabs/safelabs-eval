@@ -84,7 +84,7 @@ _ASI07_BATCH_IDS = frozenset(f"ASI07-{n:03d}" for n in range(4, 14))
 _ASI08_BATCH_IDS = frozenset(f"ASI08-{n:03d}" for n in range(4, 14))
 _ASI09_BATCH_IDS = frozenset(f"ASI09-{n:03d}" for n in range(4, 14))
 _ASI07_TOTAL = 13
-_ASI08_TOTAL = 13
+_ASI08_TOTAL = 17
 _ASI09_TOTAL = 13
 _STAGE3_BATCH4_IDS = _ASI07_BATCH_IDS | _ASI08_BATCH_IDS | _ASI09_BATCH_IDS
 
@@ -95,9 +95,22 @@ _STAGE3_BATCH4_IDS = _ASI07_BATCH_IDS | _ASI08_BATCH_IDS | _ASI09_BATCH_IDS
 # ids out so they keep asserting on exactly the pre-existing set.
 _ASI01_TIER1_BATCH_IDS = frozenset(f"ASI01-{n:03d}" for n in range(15, 19))
 
+# ── ASI08 tier_1 coverage addition (v1.8.0) ─────────────────────────────
+# 1 additional ASI08 prompt, ASI08-014, added to fill ASI08's tier_1
+# (overt) gap -- previously zero out of 13. Same treatment as the ASI01
+# tier_1 batch above.
+_ASI08_TIER1_BATCH_IDS = frozenset(["ASI08-014"])
+
+# ── ASI08 tier_1 coverage batch, continued (v1.9.0) ─────────────────────
+# 3 more ASI08 prompts, ASI08-015 .. ASI08-017, direct counterparts to
+# ASI08-010/012/008 with their evasion vehicle stripped. Same treatment
+# as the batches above.
+_ASI08_TIER1_BATCH2_IDS = frozenset(f"ASI08-{n:03d}" for n in range(15, 18))
+
 # Every id added after the Stage-1 corpus of 30: the Stage-2 ASI01 pilot,
-# Stage-3 batches 1 through 4, and the v1.7.0 ASI01 tier_1 coverage
-# batch. Invariants that lock the original 30 filter on this.
+# Stage-3 batches 1 through 4, the v1.7.0 ASI01 tier_1 coverage batch,
+# and the v1.8.0/v1.9.0 ASI08 tier_1 coverage additions. Invariants that
+# lock the original 30 filter on this.
 _POST_STAGE1_IDS = (
     _ASI01_PILOT_IDS
     | _STAGE3_BATCH1_IDS
@@ -105,9 +118,11 @@ _POST_STAGE1_IDS = (
     | _STAGE3_BATCH3_IDS
     | _STAGE3_BATCH4_IDS
     | _ASI01_TIER1_BATCH_IDS
+    | _ASI08_TIER1_BATCH_IDS
+    | _ASI08_TIER1_BATCH2_IDS
 )
 
-_LIBRARY_TOTAL = 135
+_LIBRARY_TOTAL = 139
 
 
 # ── existing coverage ─────────────────────────────────────────────────────
@@ -118,7 +133,7 @@ def test_library_loads():
 
 def test_library_version():
     lib = get_library()
-    assert lib.version == "1.7.0"
+    assert lib.version == "1.9.0"
     assert lib.schema_version == "1.1.0"
 
 
