@@ -232,6 +232,7 @@ versions to their total prompt count:
 | `1.8.0` | 136 | ASI08 tier_1 coverage addition, +1 (ASI08-014), all other categories unchanged |
 | `1.9.0` | 139 | ASI08 tier_1 coverage batch, +3 (ASI08-015..017), all other categories unchanged |
 | `1.10.0` | 163 | tier_3 coverage batch, +3 each in ASI02/03/04/05/06/07/09/10 (ASI0x-014..016), ASI01/ASI08 unchanged |
+| `1.11.0` | 167 | ASI09 tier_1 coverage batch, +4 (ASI09-017..020), all other categories unchanged |
 
 `is_library_version_comparable(a, b)` is `True` only when both versions are
 registered **and** have the same prompt count. It is deliberately **not**
