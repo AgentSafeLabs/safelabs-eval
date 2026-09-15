@@ -56,7 +56,7 @@ _STAGE3_BATCH1_IDS = _ASI02_BATCH_IDS | _ASI03_BATCH_IDS
 # dedicated tests further down.
 _ASI04_BATCH_IDS = frozenset(f"ASI04-{n:03d}" for n in range(4, 14))
 _ASI05_BATCH_IDS = frozenset(f"ASI05-{n:03d}" for n in range(4, 14))
-_ASI04_TOTAL = 16
+_ASI04_TOTAL = 20
 _ASI05_TOTAL = 16
 _STAGE3_BATCH2_IDS = _ASI04_BATCH_IDS | _ASI05_BATCH_IDS
 
@@ -124,11 +124,18 @@ _TIER3_BATCH_IDS = frozenset(
 # above.
 _ASI09_TIER1_BATCH_IDS = frozenset(f"ASI09-{n:03d}" for n in range(17, 21))
 
+# ── ASI04 tier_2 coverage batch (v1.12.0) ───────────────────────────────
+# 4 additional ASI04 prompts, ASI04-017 .. ASI04-020, filling ASI04's own
+# tier_2 gap (previously 2 of 16 -- the single thinnest cell in the
+# library). Same treatment as the batches above.
+_ASI04_TIER2_BATCH_IDS = frozenset(f"ASI04-{n:03d}" for n in range(17, 21))
+
 # Every id added after the Stage-1 corpus of 30: the Stage-2 ASI01 pilot,
 # Stage-3 batches 1 through 4, the v1.7.0 ASI01 tier_1 coverage batch,
 # the v1.8.0/v1.9.0 ASI08 tier_1 coverage additions, the v1.10.0 tier_3
-# coverage batch, and the v1.11.0 ASI09 tier_1 coverage batch. Invariants
-# that lock the original 30 filter on this.
+# coverage batch, the v1.11.0 ASI09 tier_1 coverage batch, and the
+# v1.12.0 ASI04 tier_2 coverage batch. Invariants that lock the original
+# 30 filter on this.
 _POST_STAGE1_IDS = (
     _ASI01_PILOT_IDS
     | _STAGE3_BATCH1_IDS
@@ -140,9 +147,10 @@ _POST_STAGE1_IDS = (
     | _ASI08_TIER1_BATCH2_IDS
     | _TIER3_BATCH_IDS
     | _ASI09_TIER1_BATCH_IDS
+    | _ASI04_TIER2_BATCH_IDS
 )
 
-_LIBRARY_TOTAL = 167
+_LIBRARY_TOTAL = 171
 
 
 # ── existing coverage ─────────────────────────────────────────────────────
@@ -153,7 +161,7 @@ def test_library_loads():
 
 def test_library_version():
     lib = get_library()
-    assert lib.version == "1.11.0"
+    assert lib.version == "1.12.0"
     assert lib.schema_version == "1.1.0"
 
 
