@@ -113,10 +113,10 @@ def test_run_happy_path_writes_submission_and_manifest(runner, tmp_path):
         "--categories", "ASI06", "--seeds", "1", "-o", str(out),
     ])
     assert result.exit_code == 0, result.output
-    assert "Wrote 13 trial(s)" in result.output
+    assert "Wrote 16 trial(s)" in result.output
 
     lines = out.read_text().splitlines()
-    assert len(lines) == 13
+    assert len(lines) == 16
     rows = [BenchTrialResult(**json.loads(line)) for line in lines]
     assert all(r.model == "fake-model" for r in rows)
     assert all(r.provider == "fake-provider" for r in rows)
@@ -125,7 +125,7 @@ def test_run_happy_path_writes_submission_and_manifest(runner, tmp_path):
     manifest_path = tmp_path / "sub.manifest.json"
     assert manifest_path.exists()
     manifest = json.loads(manifest_path.read_text())
-    assert manifest["trial_count"] == 13
+    assert manifest["trial_count"] == 16
     assert manifest["model"] == "fake-model"
     assert manifest["library_version"] == _CURRENT_LIBRARY_VERSION
 

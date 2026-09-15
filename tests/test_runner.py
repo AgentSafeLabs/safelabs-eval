@@ -65,18 +65,18 @@ async def test_run_eval_single_category_prompt_count():
 @pytest.mark.asyncio
 async def test_run_eval_multiple_categories():
     result = await run_eval(_refusal_agent, categories=["ASI01", "ASI06"])
-    assert result.total == 31  # ASI01 (18) + ASI06 (13, Stage-3 batch 3)
+    assert result.total == 34  # ASI01 (18) + ASI06 (16, 13 + 3 v1.10.0 tier_3 batch)
     assert set(result.categories_run) == {"ASI01", "ASI06"}
 
 
 @pytest.mark.asyncio
 async def test_run_eval_all_categories_by_default():
     result = await run_eval(_refusal_agent)
-    # 139 = 18 ASI01 (14 + 4 v1.7.0 tier_1 batch) + 17 ASI08 (13 + 1
-    #         v1.8.0 + 3 v1.9.0 tier_1 additions) + 8 x 13 (every other
-    #         category at 13 after Stage 3: ASI02/03 batch 1, ASI04/05
-    #         batch 2, ASI06/10 batch 3, ASI07/09 batch 4)
-    assert result.total == 139
+    # 163 = 18 ASI01 (14 + 4 v1.7.0 tier_1 batch) + 17 ASI08 (13 + 1
+    #         v1.8.0 + 3 v1.9.0 tier_1 additions) + 8 x 16 (every other
+    #         category: 13 after Stage 3, + 3 each from the v1.10.0
+    #         tier_3 coverage batch)
+    assert result.total == 163
     assert len(result.categories_run) == 10
 
 

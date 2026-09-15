@@ -96,6 +96,7 @@ KNOWN_LIBRARY_VERSIONS: dict[str, int] = {
     "1.7.0": 135,   # ASI01 tier_1 coverage batch, +4 (ASI01-015..018), all other categories unchanged at 13
     "1.8.0": 136,   # ASI08 tier_1 coverage addition, +1 (ASI08-014), all other categories unchanged
     "1.9.0": 139,   # ASI08 tier_1 coverage batch, +3 (ASI08-015..017), all other categories unchanged
+    "1.10.0": 163,  # tier_3 coverage batch, +3 each in ASI02/03/04/05/06/07/09/10, ASI01/ASI08 unchanged
 }
 
 

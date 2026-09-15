@@ -43,8 +43,8 @@ _ASI01_TOTAL = 18
 # dedicated tests further down.
 _ASI02_BATCH_IDS = frozenset(f"ASI02-{n:03d}" for n in range(4, 14))
 _ASI03_BATCH_IDS = frozenset(f"ASI03-{n:03d}" for n in range(4, 14))
-_ASI02_TOTAL = 13
-_ASI03_TOTAL = 13
+_ASI02_TOTAL = 16
+_ASI03_TOTAL = 16
 _STAGE3_BATCH1_IDS = _ASI02_BATCH_IDS | _ASI03_BATCH_IDS
 
 # ── Stage-3 batch 2 (v1.4.0, unreleased) ────────────────────────────────
@@ -56,8 +56,8 @@ _STAGE3_BATCH1_IDS = _ASI02_BATCH_IDS | _ASI03_BATCH_IDS
 # dedicated tests further down.
 _ASI04_BATCH_IDS = frozenset(f"ASI04-{n:03d}" for n in range(4, 14))
 _ASI05_BATCH_IDS = frozenset(f"ASI05-{n:03d}" for n in range(4, 14))
-_ASI04_TOTAL = 13
-_ASI05_TOTAL = 13
+_ASI04_TOTAL = 16
+_ASI05_TOTAL = 16
 _STAGE3_BATCH2_IDS = _ASI04_BATCH_IDS | _ASI05_BATCH_IDS
 
 # ── Stage-3 batch 3 (v1.5.0, unreleased) ─────────────────────────────
@@ -69,8 +69,8 @@ _STAGE3_BATCH2_IDS = _ASI04_BATCH_IDS | _ASI05_BATCH_IDS
 # batch gets its own dedicated tests further down.
 _ASI06_BATCH_IDS = frozenset(f"ASI06-{n:03d}" for n in range(4, 14))
 _ASI10_BATCH_IDS = frozenset(f"ASI10-{n:03d}" for n in range(4, 14))
-_ASI06_TOTAL = 13
-_ASI10_TOTAL = 13
+_ASI06_TOTAL = 16
+_ASI10_TOTAL = 16
 _STAGE3_BATCH3_IDS = _ASI06_BATCH_IDS | _ASI10_BATCH_IDS
 
 # ── Stage-3 batch 4 (v1.6.0, unreleased) -- FINAL Stage-3 batch ──────
@@ -83,9 +83,9 @@ _STAGE3_BATCH3_IDS = _ASI06_BATCH_IDS | _ASI10_BATCH_IDS
 _ASI07_BATCH_IDS = frozenset(f"ASI07-{n:03d}" for n in range(4, 14))
 _ASI08_BATCH_IDS = frozenset(f"ASI08-{n:03d}" for n in range(4, 14))
 _ASI09_BATCH_IDS = frozenset(f"ASI09-{n:03d}" for n in range(4, 14))
-_ASI07_TOTAL = 13
+_ASI07_TOTAL = 16
 _ASI08_TOTAL = 17
-_ASI09_TOTAL = 13
+_ASI09_TOTAL = 16
 _STAGE3_BATCH4_IDS = _ASI07_BATCH_IDS | _ASI08_BATCH_IDS | _ASI09_BATCH_IDS
 
 # ── ASI01 tier_1 coverage batch (v1.7.0) ────────────────────────────────
@@ -107,10 +107,22 @@ _ASI08_TIER1_BATCH_IDS = frozenset(["ASI08-014"])
 # as the batches above.
 _ASI08_TIER1_BATCH2_IDS = frozenset(f"ASI08-{n:03d}" for n in range(15, 18))
 
+# ── tier_3 coverage batch (v1.10.0) ──────────────────────────────────────
+# 3 additional prompts each in ASI02, ASI03, ASI04, ASI05, ASI06, ASI07,
+# ASI09, and ASI10 (ASI0x-014 .. ASI0x-016), filling each category's own
+# thinnest tier (resolved to tier_3 throughout this batch). Same
+# treatment as the batches above.
+_TIER3_BATCH_IDS = frozenset(
+    f"{cat}-{n:03d}"
+    for cat in ("ASI02", "ASI03", "ASI04", "ASI05", "ASI06", "ASI07", "ASI09", "ASI10")
+    for n in range(14, 17)
+)
+
 # Every id added after the Stage-1 corpus of 30: the Stage-2 ASI01 pilot,
 # Stage-3 batches 1 through 4, the v1.7.0 ASI01 tier_1 coverage batch,
-# and the v1.8.0/v1.9.0 ASI08 tier_1 coverage additions. Invariants that
-# lock the original 30 filter on this.
+# the v1.8.0/v1.9.0 ASI08 tier_1 coverage additions, and the v1.10.0
+# tier_3 coverage batch. Invariants that lock the original 30 filter on
+# this.
 _POST_STAGE1_IDS = (
     _ASI01_PILOT_IDS
     | _STAGE3_BATCH1_IDS
@@ -120,9 +132,10 @@ _POST_STAGE1_IDS = (
     | _ASI01_TIER1_BATCH_IDS
     | _ASI08_TIER1_BATCH_IDS
     | _ASI08_TIER1_BATCH2_IDS
+    | _TIER3_BATCH_IDS
 )
 
-_LIBRARY_TOTAL = 139
+_LIBRARY_TOTAL = 163
 
 
 # ── existing coverage ─────────────────────────────────────────────────────
@@ -133,7 +146,7 @@ def test_library_loads():
 
 def test_library_version():
     lib = get_library()
-    assert lib.version == "1.9.0"
+    assert lib.version == "1.10.0"
     assert lib.schema_version == "1.1.0"
 
 
