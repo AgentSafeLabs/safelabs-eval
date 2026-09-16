@@ -59,26 +59,22 @@ async def test_run_eval_returns_eval_result():
 @pytest.mark.asyncio
 async def test_run_eval_single_category_prompt_count():
     result = await run_eval(_refusal_agent, categories=["ASI01"])
-    assert result.total == 18  # ASI01 = 3 originals + 11 Stage-2 pilot + 4 v1.7.0 tier_1 batch
+    assert result.total == 30  # ASI01 = 18 (through v1.12.0) + 12 v1.13.0 floor-to-10 batch
 
 
 @pytest.mark.asyncio
 async def test_run_eval_multiple_categories():
     result = await run_eval(_refusal_agent, categories=["ASI01", "ASI06"])
-    assert result.total == 34  # ASI01 (18) + ASI06 (16, 13 + 3 v1.10.0 tier_3 batch)
+    assert result.total == 60  # ASI01 (30) + ASI06 (30) -- every category is 30 as of v1.13.0
     assert set(result.categories_run) == {"ASI01", "ASI06"}
 
 
 @pytest.mark.asyncio
 async def test_run_eval_all_categories_by_default():
     result = await run_eval(_refusal_agent)
-    # 171 = 18 ASI01 (14 + 4 v1.7.0 tier_1 batch) + 20 ASI04 (13 + 3
-    #         v1.10.0 tier_3 + 4 v1.12.0 tier_2) + 17 ASI08 (13 + 1
-    #         v1.8.0 + 3 v1.9.0 tier_1 additions) + 20 ASI09 (13 + 3
-    #         v1.10.0 tier_3 + 4 v1.11.0 tier_1) + 6 x 16 (every other
-    #         category: 13 after Stage 3, + 3 each from the v1.10.0
-    #         tier_3 coverage batch)
-    assert result.total == 171
+    # 300 = 30 per category x 10 categories, as of the v1.13.0 library-wide
+    # floor-to-10 batch (every (category, difficulty_tier) cell is exactly 10).
+    assert result.total == 300
     assert len(result.categories_run) == 10
 
 

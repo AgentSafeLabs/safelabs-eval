@@ -113,10 +113,10 @@ def test_run_happy_path_writes_submission_and_manifest(runner, tmp_path):
         "--categories", "ASI06", "--seeds", "1", "-o", str(out),
     ])
     assert result.exit_code == 0, result.output
-    assert "Wrote 16 trial(s)" in result.output
+    assert "Wrote 30 trial(s)" in result.output
 
     lines = out.read_text().splitlines()
-    assert len(lines) == 16
+    assert len(lines) == 30
     rows = [BenchTrialResult(**json.loads(line)) for line in lines]
     assert all(r.model == "fake-model" for r in rows)
     assert all(r.provider == "fake-provider" for r in rows)

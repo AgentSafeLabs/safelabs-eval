@@ -32,7 +32,7 @@ _APPROVED_UNMAPPED_CATEGORIES = {
 # asserting on exactly the original 30; the pilot has its own dedicated
 # tests further down.
 _ASI01_PILOT_IDS = frozenset(f"ASI01-{n:03d}" for n in range(4, 15))
-_ASI01_TOTAL = 18
+_ASI01_TOTAL = 30
 
 # ── Stage-3 batch 1 (v1.3.0, unreleased) ────────────────────────────────
 # Two 10-prompt category expansions: ASI02 (Insecure Output Handling) and
@@ -43,8 +43,8 @@ _ASI01_TOTAL = 18
 # dedicated tests further down.
 _ASI02_BATCH_IDS = frozenset(f"ASI02-{n:03d}" for n in range(4, 14))
 _ASI03_BATCH_IDS = frozenset(f"ASI03-{n:03d}" for n in range(4, 14))
-_ASI02_TOTAL = 16
-_ASI03_TOTAL = 16
+_ASI02_TOTAL = 30
+_ASI03_TOTAL = 30
 _STAGE3_BATCH1_IDS = _ASI02_BATCH_IDS | _ASI03_BATCH_IDS
 
 # ── Stage-3 batch 2 (v1.4.0, unreleased) ────────────────────────────────
@@ -56,8 +56,8 @@ _STAGE3_BATCH1_IDS = _ASI02_BATCH_IDS | _ASI03_BATCH_IDS
 # dedicated tests further down.
 _ASI04_BATCH_IDS = frozenset(f"ASI04-{n:03d}" for n in range(4, 14))
 _ASI05_BATCH_IDS = frozenset(f"ASI05-{n:03d}" for n in range(4, 14))
-_ASI04_TOTAL = 20
-_ASI05_TOTAL = 16
+_ASI04_TOTAL = 30
+_ASI05_TOTAL = 30
 _STAGE3_BATCH2_IDS = _ASI04_BATCH_IDS | _ASI05_BATCH_IDS
 
 # ── Stage-3 batch 3 (v1.5.0, unreleased) ─────────────────────────────
@@ -69,8 +69,8 @@ _STAGE3_BATCH2_IDS = _ASI04_BATCH_IDS | _ASI05_BATCH_IDS
 # batch gets its own dedicated tests further down.
 _ASI06_BATCH_IDS = frozenset(f"ASI06-{n:03d}" for n in range(4, 14))
 _ASI10_BATCH_IDS = frozenset(f"ASI10-{n:03d}" for n in range(4, 14))
-_ASI06_TOTAL = 16
-_ASI10_TOTAL = 16
+_ASI06_TOTAL = 30
+_ASI10_TOTAL = 30
 _STAGE3_BATCH3_IDS = _ASI06_BATCH_IDS | _ASI10_BATCH_IDS
 
 # ── Stage-3 batch 4 (v1.6.0, unreleased) -- FINAL Stage-3 batch ──────
@@ -83,9 +83,9 @@ _STAGE3_BATCH3_IDS = _ASI06_BATCH_IDS | _ASI10_BATCH_IDS
 _ASI07_BATCH_IDS = frozenset(f"ASI07-{n:03d}" for n in range(4, 14))
 _ASI08_BATCH_IDS = frozenset(f"ASI08-{n:03d}" for n in range(4, 14))
 _ASI09_BATCH_IDS = frozenset(f"ASI09-{n:03d}" for n in range(4, 14))
-_ASI07_TOTAL = 16
-_ASI08_TOTAL = 17
-_ASI09_TOTAL = 20
+_ASI07_TOTAL = 30
+_ASI08_TOTAL = 30
+_ASI09_TOTAL = 30
 _STAGE3_BATCH4_IDS = _ASI07_BATCH_IDS | _ASI08_BATCH_IDS | _ASI09_BATCH_IDS
 
 # ── ASI01 tier_1 coverage batch (v1.7.0) ────────────────────────────────
@@ -130,12 +130,31 @@ _ASI09_TIER1_BATCH_IDS = frozenset(f"ASI09-{n:03d}" for n in range(17, 21))
 # library). Same treatment as the batches above.
 _ASI04_TIER2_BATCH_IDS = frozenset(f"ASI04-{n:03d}" for n in range(17, 21))
 
+# ── library-wide floor-to-10 batch (v1.13.0) ────────────────────────────
+# 129 prompts across all ten categories, flooring every (category,
+# difficulty_tier) cell to exactly 10 and taking the library from 171 to
+# exactly 300. Per-category id ranges (each contiguous, appended after
+# that category's existing highest id): ASI01 019-030 (+12), ASI02
+# 017-030 (+14), ASI03 017-030 (+14), ASI04 021-030 (+10), ASI05 017-030
+# (+14), ASI06 017-030 (+14), ASI07 017-030 (+14), ASI08 018-030 (+13),
+# ASI09 021-030 (+10), ASI10 017-030 (+14). Same treatment as the
+# batches above.
+_V1_13_0_BATCH_IDS = frozenset(
+    f"{cat}-{n:03d}"
+    for cat, start in (
+        ("ASI01", 19), ("ASI02", 17), ("ASI03", 17), ("ASI04", 21),
+        ("ASI05", 17), ("ASI06", 17), ("ASI07", 17), ("ASI08", 18),
+        ("ASI09", 21), ("ASI10", 17),
+    )
+    for n in range(start, 31)
+)
+
 # Every id added after the Stage-1 corpus of 30: the Stage-2 ASI01 pilot,
 # Stage-3 batches 1 through 4, the v1.7.0 ASI01 tier_1 coverage batch,
 # the v1.8.0/v1.9.0 ASI08 tier_1 coverage additions, the v1.10.0 tier_3
-# coverage batch, the v1.11.0 ASI09 tier_1 coverage batch, and the
-# v1.12.0 ASI04 tier_2 coverage batch. Invariants that lock the original
-# 30 filter on this.
+# coverage batch, the v1.11.0 ASI09 tier_1 coverage batch, the v1.12.0
+# ASI04 tier_2 coverage batch, and the v1.13.0 library-wide floor-to-10
+# batch. Invariants that lock the original 30 filter on this.
 _POST_STAGE1_IDS = (
     _ASI01_PILOT_IDS
     | _STAGE3_BATCH1_IDS
@@ -148,9 +167,10 @@ _POST_STAGE1_IDS = (
     | _TIER3_BATCH_IDS
     | _ASI09_TIER1_BATCH_IDS
     | _ASI04_TIER2_BATCH_IDS
+    | _V1_13_0_BATCH_IDS
 )
 
-_LIBRARY_TOTAL = 171
+_LIBRARY_TOTAL = 300
 
 
 # ── existing coverage ─────────────────────────────────────────────────────
@@ -161,7 +181,7 @@ def test_library_loads():
 
 def test_library_version():
     lib = get_library()
-    assert lib.version == "1.12.0"
+    assert lib.version == "1.13.0"
     assert lib.schema_version == "1.1.0"
 
 
@@ -827,3 +847,27 @@ def test_stage3_batch4_difficulty_spread():
     for e in _asi07_batch_entries() + _asi08_batch_entries() + _asi09_batch_entries():
         if e.severity == "critical":
             assert e.difficulty_tier != DifficultyTier.TIER_1_OVERT, e.id
+
+
+# ── library-wide floor-to-10 batch (v1.13.0) ────────────────────────────
+# Unlike the Stage-3 batches, this one doesn't get its own full
+# dedicated per-batch test block -- the general v1.1.0 metadata
+# invariants above (difficulty_tier presence, provenance grammar, atlas
+# grammar/membership) already cover all 129 new entries. This locks in
+# the one new invariant the batch actually establishes: perfectly even
+# category and tier coverage library-wide.
+
+def test_v1_13_0_every_category_has_thirty():
+    lib = get_library()
+    for cat in PromptCategory:
+        assert len(lib.by_category(cat)) == 30, cat.value
+
+
+def test_v1_13_0_every_category_tier_cell_is_ten():
+    from collections import Counter
+
+    lib = get_library()
+    for cat in PromptCategory:
+        spread = Counter(e.difficulty_tier for e in lib.by_category(cat))
+        for tier in DifficultyTier:
+            assert spread[tier] == 10, f"{cat.value}/{tier.value}: {spread[tier]}"

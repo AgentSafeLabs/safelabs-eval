@@ -99,6 +99,7 @@ KNOWN_LIBRARY_VERSIONS: dict[str, int] = {
     "1.10.0": 163,  # tier_3 coverage batch, +3 each in ASI02/03/04/05/06/07/09/10, ASI01/ASI08 unchanged
     "1.11.0": 167,  # ASI09 tier_1 coverage batch, +4 (ASI09-017..020), all other categories unchanged
     "1.12.0": 171,  # ASI04 tier_2 coverage batch, +4 (ASI04-017..020), all other categories unchanged
+    "1.13.0": 300,  # library-wide floor-to-10 batch, +129 across all ten categories; every (category, tier) cell now exactly 10
 }
 
 

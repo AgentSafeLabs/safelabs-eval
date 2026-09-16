@@ -234,6 +234,7 @@ versions to their total prompt count:
 | `1.10.0` | 163 | tier_3 coverage batch, +3 each in ASI02/03/04/05/06/07/09/10 (ASI0x-014..016), ASI01/ASI08 unchanged |
 | `1.11.0` | 167 | ASI09 tier_1 coverage batch, +4 (ASI09-017..020), all other categories unchanged |
 | `1.12.0` | 171 | ASI04 tier_2 coverage batch, +4 (ASI04-017..020), all other categories unchanged |
+| `1.13.0` | 300 | library-wide floor-to-10 batch, +129 across all ten categories; every category now 30 prompts, every (category, difficulty_tier) cell exactly 10 |
 
 `is_library_version_comparable(a, b)` is `True` only when both versions are
 registered **and** have the same prompt count. It is deliberately **not**
