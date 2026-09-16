@@ -31,7 +31,7 @@ Every factual claim below is marked:
 
 ## Dataset description
 
-**[verified]** 131 single-turn adversarial prompts, each targeting one of
+**[verified]** 300 single-turn adversarial prompts, each targeting one of
 the 10 OWASP Agentic Security Initiative (ASI) Top-10 categories. Each
 entry is a `PromptEntry` (`safelabs/prompts/schemas.py`) with: `id`,
 `category`, `severity`, `prompt`, `expected_behavior`, `tags`,
@@ -50,15 +50,16 @@ ids, IBANs, package names) are fabricated. Domains use the reserved
 
 ### Versions
 
-**[verified]** `load_library()` (`library.py:3423`) returns
-`version="1.6.0"`, `schema_version="1.1.0"`.
+**[verified]** `load_library()` (`library.py:7251`) returns
+`version="1.13.0"`, `schema_version="1.1.0"`.
 
-**[verified]** Content version **`1.6.0`**. It was built in six
-changelog steps (`1.1.0` through `1.6.0`); Stage 4 review is complete
-and the `library.py` docstring no longer marks any of them held or
-unreleased. The content version advances with each prompt batch; the
-schema version advances only when `PromptEntry`'s shape changes
-(still `1.1.0`).
+**[verified]** Content version **`1.13.0`**. It was built in thirteen
+changelog steps (`1.1.0` through `1.13.0`); the `library.py` docstring
+records each one, most recently the v1.13.0 library-wide floor-to-10
+batch (+129 across all ten categories, 171 -> 300, flooring every
+(category, `difficulty_tier`) cell to exactly 10). The content version
+advances with each prompt batch; the schema version advances only when
+`PromptEntry`'s shape changes (still `1.1.0`).
 
 **[verified]** Schema version `1.1.0` (`schemas.py` docstring: *"Schema
 version 1.1.0 (2026-09) added three required metadata fields to
@@ -68,26 +69,30 @@ version 1.1.0 (2026-09) added three required metadata fields to
 
 ## Categories and counts
 
-**[verified]** Computed from `load_library()` this session — total **131**:
+**[verified]** Computed from `load_library()` this session — total **300**:
 
 | Category | id | Prompts |
 |---|---|---|
-| Prompt Injection | ASI01 | 14 |
-| Insecure Output Handling | ASI02 | 13 |
-| Excessive Agency | ASI03 | 13 |
-| Resource Management | ASI04 | 13 |
-| Tool Use Safety | ASI05 | 13 |
-| Data Privacy & Confidentiality | ASI06 | 13 |
-| Trust Boundaries | ASI07 | 13 |
-| Behavioral Drift | ASI08 | 13 |
-| Scope Violation | ASI09 | 13 |
-| Hallucination | ASI10 | 13 |
+| Prompt Injection | ASI01 | 30 |
+| Insecure Output Handling | ASI02 | 30 |
+| Excessive Agency | ASI03 | 30 |
+| Resource Management | ASI04 | 30 |
+| Tool Use Safety | ASI05 | 30 |
+| Data Privacy & Confidentiality | ASI06 | 30 |
+| Trust Boundaries | ASI07 | 30 |
+| Behavioral Drift | ASI08 | 30 |
+| Scope Violation | ASI09 | 30 |
+| Hallucination | ASI10 | 30 |
 
-13 per category, plus one extra in ASI01 (the Stage-2 pilot batch is one
-prompt larger than the later category batches).
+Exactly 30 per category, and exactly 10 per `difficulty_tier` within
+each category (`tier_1`/`tier_2`/`tier_3` all at 10) — the v1.13.0
+library-wide floor-to-10 batch brought every (category, tier) cell to
+parity. (Earlier versions were uneven: ASI01 briefly had 14 against 13
+elsewhere, a quirk of the Stage-2 pilot batch being one prompt larger
+than the later category batches; that asymmetry no longer exists.)
 
 **[verified]** Severity distribution (`Literal["low","medium","high",
-"critical"]`): `critical` 35, `high` 90, `medium` 6, `low` 0.
+"critical"]`): `critical` 93, `high` 192, `medium` 15, `low` 0.
 
 ---
 
@@ -121,10 +126,17 @@ prompt larger than the later category batches).
 It is deliberately a corpus-internal scale (severity floor + evasion-
 vehicle bumps), **not** an imported external difficulty metric.
 
-**[verified]** Distribution across all 131 entries: `tier_1` 52,
-`tier_2` 59, `tier_3` 20. This matches the per-stage "resulting spread"
-figures summed from the `library.py` docstring exactly
-(10/16/4 + 1/6/4 + 11/7/2 + 12/5/3 + 12/6/2 + 6/19/5).
+**[verified]** Distribution across all 300 entries: `tier_1` 100,
+`tier_2` 100, `tier_3` 100 -- an exact three-way split, and (per the
+category table above) exactly 10 of each tier within every one of the
+10 categories. This matches the per-stage "resulting spread" figures
+summed from the `library.py` docstring exactly: the original six
+Stage-1-through-1.6.0 steps (10/16/4 + 1/6/4 + 11/7/2 + 12/5/3 +
+12/6/2 + 6/19/5 = 52/59/20 across 131 entries), plus the six small
+coverage batches v1.7.0 through v1.12.0 (4/0/0 + 1/0/0 + 3/0/0 +
+0/0/24 + 4/0/0 + 0/4/0 = 12/4/24, bringing the running total to
+64/63/44 across 171 entries), plus the v1.13.0 library-wide
+floor-to-10 batch (36/37/56 across 129 new entries) = 100/100/100.
 
 ### `provenance`
 
@@ -136,7 +148,7 @@ figures summed from the `library.py` docstring exactly
     CVE   = CVE-\d{4}-\d{4,}
 ```
 
-**[verified]** All 131 entries have `provenance="original"` and match the
+**[verified]** All 300 entries have `provenance="original"` and match the
 grammar. No entry uses `adapted-from:` or `derived-from-cve:`.
 
 **[verified]** Where a prompt's *construction* models a publicly
@@ -215,6 +227,12 @@ descriptions of what each stage's prompts *cover* are **[from changelog]**
 | **3 batch 4** (final) | `08ae8b1` | 2026-09-10 | +10 ASI07, +10 ASI08, +10 ASI09 (101 -> 131). `1.6.0`. |
 | **4a** — provenance audit | `ad01b4a` | 2026-09-10 | **[summarized]** Full provenance + verbatim-text audit of all 131 prompts. Reclassified `ASI01-006` from `adapted-from:promptinject-2022` to `original` and moved its lineage to a code comment; fixed two stale tool links. |
 | **4b** — release docs | (uncommitted at time of writing) | 2026-09-10 | This card, `CREDITS.md`, README updates, and the content-version bump to `1.6.0` (the six changelog steps no longer marked held / unreleased). |
+| **5** — ASI01 tier_1 coverage | `d981abb` | 2026-09-13 | +4 ASI01 (`ASI01-015..018`), filling ASI01's own tier_1 gap (131 -> 135). `1.7.0`. |
+| **6** — ASI08 tier_1 coverage | `96723fb` | 2026-09-14 | +1 then +3 more ASI08 (`ASI08-014`, then `ASI08-015..017`), filling ASI08's tier_1 gap from zero (135 -> 136 -> 139). Two changelog steps, `1.8.0` and `1.9.0`, squashed into one commit. |
+| **7** — tier_3 coverage batch | `60cf00c` | 2026-09-15 | +3 each in ASI02/03/04/05/06/07/09/10 (`ASI0x-014..016`), filling each category's own thinnest tier (139 -> 163). `1.10.0`. |
+| **8** — ASI09 tier_1 coverage | `7423d28` | 2026-09-15 | +4 ASI09 (`ASI09-017..020`), filling ASI09's own tier_1 gap (163 -> 167). `1.11.0`. |
+| **9** — ASI04 tier_2 coverage | `9383d48` | 2026-09-15 | +4 ASI04 (`ASI04-017..020`), filling ASI04's own tier_2 gap, the single thinnest cell library-wide at the time (167 -> 171). `1.12.0`. |
+| **10** — library-wide floor-to-10 | `1e7d3fa` | 2026-09-15 | +129 across all ten categories, flooring every (category, `difficulty_tier`) cell to exactly 10 (171 -> 300). `1.13.0`. |
 
 **[verified]** There is no standalone `CHANGELOG` file; the changelog is
 the `library.py` module docstring.
@@ -280,8 +298,8 @@ Python callable).
 - **[verified]** `atlas_technique_ids` uses nearest-fit mappings with
   documented caveats for several categories; it is not an authoritative
   ATLAS classification.
-- Coverage is breadth-first (13 per category); it is not exhaustive of
-  any category's attack surface.
+- Coverage is breadth-first (30 per category, 10 per `difficulty_tier`);
+  it is not exhaustive of any category's attack surface.
 
 **Risk / dual-use.** The prompts are adversarial by construction but
 contain no working exploit payloads, malware, or step-by-step harmful
@@ -299,7 +317,7 @@ Its appendix copyright placeholder (`Copyright [yyyy] [name of copyright
 owner]`) is left unfilled, which is normal.
 
 **[verified]** `pyproject.toml`: `license = { text = "Apache-2.0" }`;
-`name = "safelabs-eval"`; `version = "0.2.2"`; author
+`name = "safelabs-eval"`; `version = "0.4.2"`; author
 `Waqar Javed <waqar@agentsafelabs.io>`. **[verified]** The README
 attributes maintenance to *Safe Labs AI Inc.*
 
@@ -320,14 +338,14 @@ form (not yet formalized by the maintainers):
   title  = {safelabs-eval: OWASP ASI adversarial prompt library},
   author = {Javed, Waqar and {Safe Labs AI Inc.}},
   year   = {2026},
-  note   = {Content version 1.6.0; 131 prompts across the 10 OWASP ASI Top-10 categories},
+  note   = {Content version 1.13.0; 300 prompts across the 10 OWASP ASI Top-10 categories},
   url    = {https://github.com/AgentSafeLabs/safelabs-eval}
 }
 ```
 
 When citing a specific run or finding, also cite the exact commit of
 `safelabs/prompts/library.py` you evaluated against: the content version
-(`1.6.0`) advances only per prompt batch, so a commit hash pins the exact
+(`1.13.0`) advances only per prompt batch, so a commit hash pins the exact
 prompt set.
 
 ---

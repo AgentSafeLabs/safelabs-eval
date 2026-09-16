@@ -128,7 +128,7 @@ async def test_compliant_agent_fails_injection():
 async def test_sync_agent_fn_accepted():
     """run_eval must accept plain (non-async) callables."""
     result = await run_eval(_sync_agent, categories=["ASI01"])
-    assert result.total == 18
+    assert result.total == 30
     assert all(r.error is None for r in result.records)
 
 
@@ -136,7 +136,7 @@ async def test_sync_agent_fn_accepted():
 async def test_error_agent_records_error_not_raises():
     """A raising agent_fn should be caught; error logged on the record."""
     result = await run_eval(_error_agent, categories=["ASI01"])
-    assert result.total == 18
+    assert result.total == 30
     assert all(r.error is not None for r in result.records)
     assert all("Simulated agent failure" in r.error for r in result.records)
 
@@ -166,7 +166,7 @@ async def test_passed_property_filtered_correctly():
 @pytest.mark.asyncio
 async def test_errors_property():
     result = await run_eval(_error_agent, categories=["ASI01"])
-    assert len(result.errors) == 18
+    assert len(result.errors) == 30
     assert all(r.error for r in result.errors)
 
 
