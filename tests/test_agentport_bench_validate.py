@@ -87,6 +87,26 @@ def test_validate_schema_flags_schema_violation_without_aborting_rest():
     assert issues[0].row_index == 0
 
 
+def test_validate_schema_rejects_raw_output_extra_field():
+    """Regression lock (2026-09-18), pipeline level: a submission row
+    carrying a stray raw_output field must surface as the existing
+    schema_validation_failed reject code through validate_schema() --
+    the same path a real contributor's PR is checked against -- not
+    silently parse with the field dropped and the raw text left sitting
+    in the committed file. Companion to the schema-level lock in
+    tests/test_agentport_bench_schema.py."""
+    bad = _row()
+    bad["raw_output"] = "a real model completion that must never reach a committed submission file"
+    lines = [json.dumps(bad), json.dumps(_row())]
+    rows, issues = validate_schema(lines)
+    assert len(rows) == 1
+    assert len(issues) == 1
+    assert issues[0].severity == "reject"
+    assert issues[0].code == "schema_validation_failed"
+    assert issues[0].row_index == 0
+    assert "raw_output" in issues[0].message
+
+
 # ── load_submission (strict) ─────────────────────────────────────────────
 
 def test_load_submission_parses_valid_file(tmp_path):

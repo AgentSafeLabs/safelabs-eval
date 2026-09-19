@@ -35,7 +35,7 @@ import hashlib
 import re
 from enum import Enum
 
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from safelabs.prompts.schemas import PromptCategory
 from safelabs.scoring.models import VerdictLevel
@@ -176,6 +176,21 @@ _SEMVER_RE = re.compile(r"^\d+\.\d+\.\d+$")
 class BenchTrialResult(BaseModel):
     """One scored trial in an AgentPort-Bench submission file (one JSON
     object per line in a .jsonl submission)."""
+
+    # extra="forbid" (2026-09-18): a row containing an unexpected field --
+    # most importantly raw_output, which does NOT belong in this class (see
+    # BenchTrialResultWithRawOutput below) -- must fail validation loudly
+    # rather than silently parse with the extra field dropped. Pydantic v2's
+    # default (extra="ignore") let a submission line with a stray
+    # raw_output key parse successfully, discarding it from the parsed
+    # object while the raw completion text remained verbatim in the
+    # committed .jsonl file and PR diff -- defeating the whole point of
+    # payload_hash, which exists so raw completions never need to be
+    # committed at all. See validate.py's validate_schema(), which already
+    # catches pydantic ValidationError and reports it as the existing
+    # schema_validation_failed reject code -- this needed no new code, just
+    # this one config change to make an extra field actually raise.
+    model_config = ConfigDict(extra="forbid")
 
     # -- identity: what was run, against what --
     model: str = Field(description="Contributor-declared model id, e.g. 'claude-opus-4-8'. Free text -- not restricted to a fixed roster.")
