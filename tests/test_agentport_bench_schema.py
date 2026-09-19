@@ -66,6 +66,33 @@ def test_optional_fields_default_correctly():
     assert r2.usage is None
 
 
+# ── extra-field rejection ────────────────────────────────────────────────
+
+def test_bench_trial_result_rejects_raw_output_extra_field():
+    """Regression lock (2026-09-18): BenchTrialResult must reject, not
+    silently drop, an unexpected field -- most importantly raw_output,
+    which does not belong on this class (see BenchTrialResultWithRawOutput).
+    Before model_config = ConfigDict(extra="forbid") was added, pydantic
+    v2's default (extra="ignore") let a row with a stray raw_output key
+    parse successfully with the field silently discarded from the parsed
+    object, while the raw completion text remained verbatim in the
+    committed submission file -- defeating payload_hash's entire purpose
+    (verifiable integrity without ever requiring raw output to be
+    committed). This must surface as an error the caller can't miss."""
+    with pytest.raises(ValidationError) as exc_info:
+        BenchTrialResult(**_valid_row(raw_output="a real model completion that must never be silently accepted"))
+    assert "raw_output" in str(exc_info.value)
+    assert "extra_forbidden" in str(exc_info.value) or "Extra inputs are not permitted" in str(exc_info.value)
+
+
+def test_bench_trial_result_rejects_arbitrary_extra_field():
+    """Same regression, generalized: extra="forbid" rejects ANY unexpected
+    field, not just raw_output specifically -- this is a schema-level
+    guarantee, not a raw_output special case."""
+    with pytest.raises(ValidationError):
+        BenchTrialResult(**_valid_row(some_unexpected_field="anything"))
+
+
 # ── prompt_id grammar ────────────────────────────────────────────────────
 
 @pytest.mark.parametrize("bad_id", ["asi01-001", "ASI1-001", "ASI01_001", "ASI01-01", "ASI01-0001", ""])
