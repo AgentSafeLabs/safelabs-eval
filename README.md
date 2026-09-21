@@ -5,12 +5,11 @@
 <p align="center">
 
 [![CI](https://github.com/AgentSafeLabs/safelabs-eval/actions/workflows/ci.yml/badge.svg)](https://github.com/AgentSafeLabs/safelabs-eval/actions/workflows/ci.yml)
-[![Tests](https://img.shields.io/badge/tests-377%20passed-brightgreen)](https://github.com/AgentSafeLabs/safelabs-eval/tree/main/tests)
-[![Python](https://img.shields.io/badge/python-3.11%2B-blue)](https://www.python.org/)
-[![License](https://img.shields.io/badge/license-Apache%202.0-blue)](LICENSE)
-[![OWASP ASI](https://img.shields.io/badge/OWASP-ASI%20Top%2010-red)](https://owasp.org/www-project-top-10-for-large-language-model-applications/)
+[![Tests](https://img.shields.io/badge/tests-377%20passed-brightgreen?style=flat-square)](https://github.com/AgentSafeLabs/safelabs-eval/tree/main/tests)
+[![License](https://img.shields.io/badge/license-Apache%202.0-blue?style=flat-square)](LICENSE)
+[![OWASP ASI](https://img.shields.io/badge/OWASP-ASI%20Top%2010-red?style=flat-square)](https://owasp.org/www-project-top-10-for-large-language-model-applications/)
 [![PyPI version](https://badge.fury.io/py/safelabs-eval.svg)](https://pypi.org/project/safelabs-eval/)
-[![PyPI - Python Version](https://img.shields.io/pypi/pyversions/safelabs-eval)](https://pypi.org/project/safelabs-eval/)
+[![PyPI - Python Version](https://img.shields.io/pypi/pyversions/safelabs-eval?style=flat-square)](https://pypi.org/project/safelabs-eval/)
 
 </p>
 
