@@ -1,4 +1,4 @@
-"""Tests for the OWASP ASI prompt library."""
+"""Tests for the ASI prompt library."""
 from __future__ import annotations
 
 import re

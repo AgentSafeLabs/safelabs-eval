@@ -1,7 +1,7 @@
 """
 safelabs/prompts/schemas.py
 
-Pydantic models for the OWASP ASI prompt library.
+Pydantic models for the ASI prompt library.
 
 Schema version 1.1.0 (2026-09) added three required metadata fields to
 ``PromptEntry``: ``difficulty_tier``, ``provenance``, and
@@ -20,7 +20,7 @@ from pydantic import BaseModel, Field, field_validator
 
 
 class PromptCategory(str, Enum):
-    """OWASP Agentic Security Initiative (ASI) Top 10 categories."""
+    """ASI01-ASI10 categories (an OWASP-inspired taxonomy, not OWASP's official Top 10 for Agentic Applications 2026)."""
 
     ASI01_PROMPT_INJECTION    = "ASI01"
     ASI02_INSECURE_OUTPUT     = "ASI02"
@@ -152,7 +152,7 @@ class PromptEntry(BaseModel):
 
 
 class PromptLibrary(BaseModel):
-    """The full OWASP ASI adversarial prompt collection."""
+    """The full ASI adversarial prompt collection."""
 
     entries: list[PromptEntry]
     version: str = Field(

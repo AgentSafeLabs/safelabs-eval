@@ -1,8 +1,8 @@
 """
 safelabs-eval
 =============
-OWASP Agentic Security Initiative (ASI) Top 10 — red-teaming and evaluation
-framework for AI agents.
+Red-teaming and evaluation framework for AI agents, built around an
+OWASP-inspired ASI01-ASI10 taxonomy.
 
 Quick start
 -----------

@@ -17,7 +17,7 @@ def get_library() -> PromptLibrary:
 
 
 def get_prompts_for_category(category: str | PromptCategory) -> list[PromptEntry]:
-    """Return all prompts for a given OWASP ASI category string (e.g. "ASI01")."""
+    """Return all prompts for a given ASI category string (e.g. "ASI01")."""
     if isinstance(category, str):
         category = PromptCategory(category)
     return get_library().by_category(category)

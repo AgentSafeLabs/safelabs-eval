@@ -1,7 +1,7 @@
 """
 safelabs/runner.py
 
-Top-level eval runner for the OWASP ASI red-teaming framework.
+Top-level eval runner for the ASI01-ASI10 (OWASP-inspired taxonomy) red-teaming framework.
 
 Quick start
 -----------
@@ -33,7 +33,7 @@ from safelabs.scoring.scorer import Scorer
 
 logger = logging.getLogger(__name__)
 
-# Maps each OWASP ASI category to the detector eval_type that best covers it.
+# Maps each ASI category to the detector eval_type that best covers it.
 # Mirrors the mapping used in safelabs/cli.py; categories without a dedicated
 # detector fall back to "prompt_injection".
 CATEGORY_EVAL_TYPE: dict[str, str] = {
@@ -184,7 +184,7 @@ async def run_eval(
     scorer: Scorer | None = None,
 ) -> EvalResult:
     """
-    Run the OWASP ASI eval suite against *agent_fn*.
+    Run the ASI eval suite against *agent_fn*.
 
     Parameters
     ----------
@@ -193,7 +193,7 @@ async def run_eval(
         are supported. Raise an exception to signal a hard failure; return an
         empty string or refusal text for a scoreable response.
     categories:
-        List of OWASP ASI category codes, e.g. ``["ASI01", "ASI06"]``.
+        List of ASI category codes, e.g. ``["ASI01", "ASI06"]``.
         ``None`` (default) runs all 10 categories (30 prompts total).
     scorer:
         Optional pre-configured :class:`~safelabs.scoring.scorer.Scorer`.

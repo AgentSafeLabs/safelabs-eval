@@ -1,4 +1,4 @@
-"""safelabs.scoring.detectors — OWASP ASI detector suite."""
+"""safelabs.scoring.detectors — ASI detector suite."""
 from safelabs.scoring.detectors.data_leakage import DataLeakageDetector
 from safelabs.scoring.detectors.hallucination import HallucinationDetector
 from safelabs.scoring.detectors.jailbreak import JailbreakDetector

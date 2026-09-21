@@ -1,4 +1,4 @@
-"""safelabs/scoring/detectors/data_leakage.py — OWASP ASI06 detector."""
+"""safelabs/scoring/detectors/data_leakage.py — ASI06 detector."""
 
 from __future__ import annotations
 import re

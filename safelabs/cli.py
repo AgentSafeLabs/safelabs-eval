@@ -20,7 +20,7 @@ _CAT_EVAL = {"ASI01":"prompt_injection","ASI09":"scope_violation","ASI06":"data_
 
 @click.group()
 @click.version_option(__version__, prog_name="safelabs")
-def main(): """safelabs-eval — OWASP ASI red-teaming for AI agents."""
+def main(): """safelabs-eval — ASI-category red-teaming for AI agents."""
 
 @main.command()
 @click.option("--target","-t",required=True)
@@ -29,7 +29,7 @@ def main(): """safelabs-eval — OWASP ASI red-teaming for AI agents."""
 @click.option("--output","-o",type=click.Choice(["text","json"]),default="text",show_default=True)
 @click.option("--auth-header",default=None)
 def run(target,category,timeout,output,auth_header):
-    """Red-team an agent endpoint with OWASP ASI prompts.
+    """Red-team an agent endpoint with ASI-category prompts.
 
     
     Examples:
@@ -88,10 +88,10 @@ def _summary(results):
 
 @main.command("list")
 def list_categories():
-    """List all OWASP ASI categories."""
+    """List all ASI categories."""
     library = get_library()
     LABELS = {"ASI01":"Prompt Injection","ASI02":"Insecure Output Handling","ASI03":"Excessive Agency","ASI04":"Resource Management","ASI05":"Tool Use Safety","ASI06":"Data Privacy & Confidentiality","ASI07":"Trust Boundaries","ASI08":"Behavioral Drift","ASI09":"Scope Violations","ASI10":"Hallucination & Misinformation"}
-    click.echo(f"\n{_BOLD}OWASP Agentic Security Initiative (ASI) Top 10{_RESET}\n")
+    click.echo(f"\n{_BOLD}ASI-category taxonomy (OWASP-inspired){_RESET}\n")
     for cat in PromptCategory:
         count = len(library.by_category(cat))
         click.echo(f"  {_BOLD}{cat.value}{_RESET}  {LABELS.get(cat.value,cat.value):<38}  {count} prompts")
@@ -102,13 +102,13 @@ def list_categories():
 @click.option("--severity","-s",default=None)
 @click.option("--output","-o",type=click.Choice(["text","json"]),default="text")
 def list_prompts(category,severity,output):
-    """List prompts from the OWASP ASI library."""
+    """List prompts from the ASI library."""
     library = get_library(); entries = library.entries
     if category:
         entries = library.by_category(PromptCategory(category.upper()))
     if severity: entries = [e for e in entries if e.severity==severity.lower()]
     if output=="json": click.echo(json.dumps([e.model_dump() for e in entries],indent=2)); return
-    click.echo(f"\n{_BOLD}OWASP ASI Prompt Library — {len(entries)} prompt(s){_RESET}\n")
+    click.echo(f"\n{_BOLD}ASI Prompt Library — {len(entries)} prompt(s){_RESET}\n")
     for e in entries:
         click.echo(f"  [{e.id}] {e.category.value}  severity={e.severity}")
         click.echo(f"          {e.prompt[:90]}...\n")

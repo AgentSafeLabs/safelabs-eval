@@ -1,9 +1,9 @@
 """
 safelabs/prompts/library.py
 
-OWASP Agentic Security Initiative (ASI) Top 10 -- adversarial prompt library.
+ASI01-ASI10 (OWASP-inspired taxonomy) -- adversarial prompt library.
 
-Content version 1.13.0 -- 300 prompts: exactly 30 per OWASP ASI
+Content version 1.13.0 -- 300 prompts: exactly 30 per ASI
 category, and exactly 10 per (category, difficulty_tier) cell
 library-wide -- every cell floored to 10 in one batch. Built in
 stages, each recorded in the changelog below: the original 30
@@ -7249,5 +7249,5 @@ _ENTRIES: list[PromptEntry] = [
 
 
 def load_library() -> PromptLibrary:
-    """Return the full OWASP Agentic Top 10 prompt library."""
+    """Return the full ASI adversarial prompt library."""
     return PromptLibrary(entries=_ENTRIES, version="1.13.0", schema_version="1.1.0")

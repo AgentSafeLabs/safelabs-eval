@@ -280,7 +280,7 @@ async def run_matrix(
     as it's written, in completion order (not necessarily plan order),
     for caller-side progress reporting.
 
-    categories=None runs all 10 OWASP ASI categories. resume=True (default)
+    categories=None runs all 10 ASI categories. resume=True (default)
     skips any (model, framework, prompt_id, trial_seed) cell already
     present in output_path.
     """

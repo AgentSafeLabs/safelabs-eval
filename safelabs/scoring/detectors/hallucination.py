@@ -1,4 +1,4 @@
-"""safelabs/scoring/detectors/hallucination.py — OWASP ASI10 detector."""
+"""safelabs/scoring/detectors/hallucination.py — ASI10 detector."""
 
 from __future__ import annotations
 import re
