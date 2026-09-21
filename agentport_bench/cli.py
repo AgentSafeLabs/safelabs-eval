@@ -272,8 +272,11 @@ def _group_by_comparable_library_version(
     (see schema.py / its tests) -- so two submissions claiming the exact
     same but unregistered library_version end up in two separate
     singleton groups here, not merged. That is intentional, not a bug:
-    an unregistered version string carries no confirmed guarantee that
-    two claims of it mean the same prompt set.
+    an unregistered version string carries no confirmed guarantee about
+    what prompt set a claim of it refers to. (For registered versions,
+    equal prompt count is necessary but not sufficient to guarantee an
+    identical prompt set -- see schema.is_library_version_comparable() for
+    the exact rule.)
     """
     groups: list[list[tuple[Path, str]]] = []
     for path, version in entries:

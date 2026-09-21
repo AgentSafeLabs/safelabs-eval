@@ -105,9 +105,11 @@ KNOWN_LIBRARY_VERSIONS: dict[str, int] = {
 
 def is_library_version_comparable(version_a: str, version_b: str) -> bool:
     """
-    True only when two submissions' library_version values scored against
-    the same total prompt count (and therefore the same prompt set) --
-    the minimum bar for treating their verdicts as comparable at all.
+    True only when both library_version values are registered in
+    KNOWN_LIBRARY_VERSIONS and map to the same total prompt count -- the
+    minimum bar for treating two submissions' verdicts as comparable at
+    all. Equal prompt count is necessary but not sufficient to guarantee an
+    identical prompt set (see the note below).
 
     False whenever either version is absent from KNOWN_LIBRARY_VERSIONS --
     an unregistered version can't be confirmed comparable to anything, so
