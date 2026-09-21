@@ -1,12 +1,12 @@
 # Credits — technique & scenario lineage
 
-`safelabs-eval`'s prompt library (`safelabs/prompts/library.py`, 131 entries)
+`safelabs-eval`'s prompt library (`safelabs/prompts/library.py`, 300 entries)
 is original text. Every prompt, expected-behavior string, and fabricated
 entity (names, domains, ticket ids, package names) was written for this
 project.
 
-A Stage-4a provenance and verbatim-text audit (2026-09) over all 131
-prompts found **no verbatim reproduction of text, code, or dataset rows
+A Stage-4a provenance and verbatim-text audit (2026-09) over the 131
+prompts of content version 1.6.0 found **no verbatim reproduction of text, code, or dataset rows
 from any external source.** Where a prompt's *construction* deliberately
 models a publicly described attack technique or scenario domain, that
 lineage is recorded in a code comment directly above the entry
@@ -19,6 +19,14 @@ All entries carry `provenance="original"`. No entry uses the
 `original` because the "ignore all previous instructions" idiom is generic
 and no verbatim PromptInject text is reused — see that entry's code
 comment.)
+
+**Audit scope.** The Stage-4a audit covers only the 131 prompts of
+content version 1.6.0. The 169 prompts added afterward (content versions
+1.7.0–1.13.0) are not covered by it. The `library.py` changelog records a
+"Stage-4a-standard" overlap comparison (difflib and n-gram, same-category and
+library-wide) run on each later batch before merge, but that is not the same
+as the original audit, and no external-source verbatim audit of those
+prompts is documented in this file.
 
 This repository is licensed under **Apache-2.0** (see [`LICENSE`](LICENSE)).
 Nothing below imposes any obligation on downstream users of this
@@ -192,8 +200,10 @@ prompt should be revised.
 
 ## Summary
 
-- 131 prompts, all `provenance="original"`.
-- No verbatim text, code, or dataset content from any source above.
+- 300 prompts, all `provenance="original"`.
+- The Stage-4a audit (131 prompts, content version 1.6.0) found no verbatim
+  text, code, or dataset content from any source above; see "Audit scope"
+  above for what it does not cover.
 - ~13 entries carry a code-comment note recording technique / scenario
   lineage; this file is the index of those sources. Four papers plus
   garak and PyRIT are cited by name in those comments; the "Do Anything

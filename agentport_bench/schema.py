@@ -24,7 +24,8 @@ Design decisions carried over from the approved design
     below, and validate.py's dedicated comparability check. agentdojo-x's
     original 7,020-trial run scored against the 30-prompt library
     (content version 1.0.0/1.1.0); AgentPort-Bench submissions from this
-    package onward score against 131 (1.6.0+). These are not directly
+    package onward score against the 1.6.0+ library (131 prompts at 1.6.0,
+    300 at the current 1.13.0). These are not directly
     comparable without accounting for that -- do not silently average or
     rank them together.
 """

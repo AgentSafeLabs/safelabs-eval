@@ -297,8 +297,8 @@ def compare(submissions) -> None:
     Compare / rank two or more already-validated submissions.
 
     Refuses to silently merge submissions whose library_version values
-    are not schema.is_library_version_comparable() -- e.g. a 131-prompt
-    (1.6.0+) submission and agentdojo-x-era 30-prompt (1.0.0/1.1.0) data
+    are not schema.is_library_version_comparable() -- e.g. a 300-prompt
+    (1.13.0) submission and agentdojo-x-era 30-prompt (1.0.0/1.1.0) data
     are never combined into one ranking here; each incomparable group is
     reported separately with an explicit banner, never averaged together.
 

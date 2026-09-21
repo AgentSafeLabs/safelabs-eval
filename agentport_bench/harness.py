@@ -14,7 +14,7 @@ library_version from get_library().version, harness_version from
 agentport_bench.__version__ -- inside run_trial(). Neither is a caller-
 supplied parameter, so a result can never misreport what it actually ran
 against. Contributors running this harness today get library_version
-"1.6.0" (131 prompts); this is NOT directly comparable to agentdojo-x's
+"1.13.0" (300 prompts); this is NOT directly comparable to agentdojo-x's
 original 7,020-trial run, which scored against "1.0.0"/"1.1.0" (30
 prompts) -- see schema.py's KNOWN_LIBRARY_VERSIONS and
 is_library_version_comparable().

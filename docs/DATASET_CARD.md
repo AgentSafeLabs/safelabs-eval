@@ -317,7 +317,7 @@ Its appendix copyright placeholder (`Copyright [yyyy] [name of copyright
 owner]`) is left unfilled, which is normal.
 
 **[verified]** `pyproject.toml`: `license = { text = "Apache-2.0" }`;
-`name = "safelabs-eval"`; `version = "0.4.2"`; author
+`name = "safelabs-eval"`; `version = "0.10.1"`; author
 `Waqar Javed <waqar@agentsafelabs.io>`. **[verified]** The README
 attributes maintenance to *Safe Labs AI Inc.*
 
