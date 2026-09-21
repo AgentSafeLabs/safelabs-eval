@@ -15,7 +15,7 @@ pip install -e ".[dev]"
 pytest tests/ -v
 ```
 
-Requires Python 3.11 or 3.12. Always work inside `.venv` — do not install
+Requires Python 3.11, 3.12, or 3.13. Always work inside `.venv` — do not install
 or run against your system Python.
 
 **Before you start any work session**, confirm you're actually running
