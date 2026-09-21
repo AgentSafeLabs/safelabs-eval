@@ -10,8 +10,6 @@ public issue.
 **Preferred: GitHub Private Vulnerability Reporting** — use the
 "Report a vulnerability" button under this repo's Security tab.
 
-**Alternative:** email [security contact email — fill in].
-
 Please include:
 - A description of the vulnerability and its potential impact
 - Steps to reproduce

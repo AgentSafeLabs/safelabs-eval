@@ -2,7 +2,7 @@
   <img src="docs/assets/logo-full.png" alt="safelabs-eval" width="400">
 </p>
 
-<p align="center">
+<div align="center">
 
 [![CI](https://github.com/AgentSafeLabs/safelabs-eval/actions/workflows/ci.yml/badge.svg)](https://github.com/AgentSafeLabs/safelabs-eval/actions/workflows/ci.yml)
 [![Tests](https://img.shields.io/badge/tests-377%20passed-brightgreen?style=flat-square)](https://github.com/AgentSafeLabs/safelabs-eval/tree/main/tests)
@@ -11,7 +11,7 @@
 [![PyPI version](https://badge.fury.io/py/safelabs-eval.svg)](https://pypi.org/project/safelabs-eval/)
 [![PyPI - Python Version](https://img.shields.io/pypi/pyversions/safelabs-eval?style=flat-square)](https://pypi.org/project/safelabs-eval/)
 
-</p>
+</div>
 
 # safelabs-eval
 
