@@ -10,5 +10,4 @@ authors:
 repository-code: "https://github.com/AgentSafeLabs/safelabs-eval"
 license: Apache-2.0
 version: 0.10.1
-# date-released: taken from the GitHub v0.10.1 release page (published 2026-09-20T18:51Z); confirm before committing.
 date-released: 2026-09-20

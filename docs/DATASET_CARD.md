@@ -354,11 +354,13 @@ upstream source adds a downstream obligation.
 
 ## Citation
 
-**[verified]** There is no `CITATION.cff` in the repository. Suggested
-form (not yet formalized by the maintainers):
+**[verified]** See [`CITATION.cff`](../CITATION.cff) at the repository root
+for the citation of the `safelabs-eval` *software package*. The entry below is
+a suggested form (not yet formalized by the maintainers) for citing the
+*prompt corpus* specifically:
 
 ```bibtex
-@software{safelabs_eval_asi_prompts,
+@misc{safelabs_eval_asi_prompts,
   title  = {safelabs-eval: ASI-category adversarial prompt library},
   author = {Javed, Waqar and {Safe Labs AI Inc.}},
   year   = {2026},
