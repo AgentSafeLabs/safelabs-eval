@@ -1,0 +1,14 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it using the metadata below."
+type: software
+title: "safelabs-eval"
+abstract: "Open-source red-teaming and evaluation framework for AI agents, aligned to the OWASP Agentic Security Initiative (ASI) Top 10."
+authors:
+  - family-names: Javed
+    given-names: Waqar
+    affiliation: "Safe Labs AI Inc."
+repository-code: "https://github.com/AgentSafeLabs/safelabs-eval"
+license: Apache-2.0
+version: 0.10.1
+# date-released: taken from the GitHub v0.10.1 release page (published 2026-09-20T18:51Z); confirm before committing.
+date-released: 2026-09-20

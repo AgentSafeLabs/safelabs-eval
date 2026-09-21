@@ -172,7 +172,7 @@ safelabs prompts --category ASI06 --output json
 | **ASI09** | Scope Violations | 30 | `ScopeViolationDetector` |
 | **ASI10** | Hallucination & Misinformation | 30 | `HallucinationDetector` |
 
-**300 adversarial prompts · 5 pattern-based detectors · 10 OWASP ASI categories · zero LLM cost**
+**300 adversarial prompts · 5 pattern-based detectors · 10 OWASP ASI categories · zero additional LLM grading cost**
 
 ### Prompt library
 
@@ -254,7 +254,7 @@ coverage of any OWASP ASI category.
 | Problem | safelabs-eval |
 |---|---|
 | Fragmented agent-security evaluation | 300 curated prompts across all 10 OWASP ASI categories |
-| Security tools require LLM calls to score | Pure Python detectors — zero LLM cost |
+| Security tools require LLM calls to score | Pure Python detectors — zero additional LLM grading cost |
 | Testing tied to one framework | Framework-agnostic — HTTP endpoint or Python callable |
 | No audit trail for compliance | Structured JSON output for CI/CD and compliance reports |
 

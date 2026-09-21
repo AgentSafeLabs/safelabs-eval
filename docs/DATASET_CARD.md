@@ -316,10 +316,12 @@ text (201 lines; `sha256 c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87d
 Its appendix copyright placeholder (`Copyright [yyyy] [name of copyright
 owner]`) is left unfilled, which is normal.
 
-**[verified]** `pyproject.toml`: `license = { text = "Apache-2.0" }`;
-`name = "safelabs-eval"`; `version = "0.10.1"`; author
-`Waqar Javed <waqar@agentsafelabs.io>`. **[verified]** The README
-attributes maintenance to *Safe Labs AI Inc.*
+**[verified]** The package metadata declares the license as Apache-2.0
+under the name `safelabs-eval`, with author Waqar Javed. **[verified]** The
+README attributes maintenance to *Safe Labs AI Inc.*
+
+Package version varies by software release; this dataset card describes
+prompt-library content version 1.13.0 and schema version 1.1.0.
 
 This dataset is distributed as part of `safelabs-eval` under that same
 Apache-2.0 license. Per the Stage-4a audit, no third-party licensed
