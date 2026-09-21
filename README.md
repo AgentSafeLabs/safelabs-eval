@@ -7,7 +7,7 @@
 [![CI](https://github.com/AgentSafeLabs/safelabs-eval/actions/workflows/ci.yml/badge.svg)](https://github.com/AgentSafeLabs/safelabs-eval/actions/workflows/ci.yml)
 [![Tests](https://img.shields.io/badge/tests-377%20passed-brightgreen?style=flat-square)](https://github.com/AgentSafeLabs/safelabs-eval/tree/main/tests)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue?style=flat-square)](LICENSE)
-[![OWASP ASI](https://img.shields.io/badge/OWASP-ASI%20Top%2010-red?style=flat-square)](https://owasp.org/www-project-top-10-for-large-language-model-applications/)
+[![Taxonomy: OWASP-inspired](https://img.shields.io/badge/taxonomy-OWASP--inspired-red?style=flat-square)](https://owasp.org/www-project-top-10-for-large-language-model-applications/)
 [![PyPI version](https://badge.fury.io/py/safelabs-eval.svg)](https://pypi.org/project/safelabs-eval/)
 [![PyPI - Python Version](https://img.shields.io/pypi/pyversions/safelabs-eval?style=flat-square)](https://pypi.org/project/safelabs-eval/)
 
@@ -15,15 +15,15 @@
 
 # safelabs-eval
 
-**Open-source red-teaming and evaluation framework for AI agents — aligned to the OWASP Agentic Security Initiative (ASI) Top 10.**
+**Open-source red-teaming and evaluation framework for AI agents — built around an OWASP-inspired agent-security taxonomy (ASI01–ASI10).**
 
 ---
 
 AI agents built on LangChain, CrewAI, AutoGen, LlamaIndex, the OpenAI Agents SDK, Google ADK, Semantic Kernel, and custom frameworks ship to production without systematic safety testing. `safelabs-eval` changes that.
 
-Point it at any agent endpoint — or wrap any Python callable — and it fires **300 curated adversarial prompts** (30 per OWASP ASI category) across all 10 OWASP ASI categories, scores every response with pattern-based detectors, and prints a structured security report in seconds.
+Point it at a supported HTTP agent endpoint — or wrap a Python callable — and it fires **300 curated adversarial prompts** (30 per category) across all 10 ASI categories, scores every response with pattern-based detectors, and produces a structured security report. The ASI01–ASI10 category structure is OWASP-inspired, not the official OWASP Top 10 for Agentic Applications 2026 — see the [taxonomy note](#asi-category-coverage).
 
-No LLM calls required for detection. No agent code modifications required. No infrastructure setup.
+No LLM calls required for detection. No agent code modifications required. No SafeLabs-specific infrastructure required.
 
 ---
 
@@ -45,7 +45,7 @@ pip install safelabs-eval
 # Red-team a local agent against ASI01 (Prompt Injection)
 safelabs run --target http://localhost:8000/chat --category ASI01
 
-# Run all 300 OWASP ASI prompts
+# Run all 300 ASI01–ASI10 prompts
 safelabs run --target http://localhost:8000/chat --category all
 
 # JSON output for CI pipelines
@@ -113,7 +113,7 @@ result.summary()
 
 Both `def` and `async def` callables are accepted. No agent code modification required.
 
-**Run all 10 OWASP ASI categories (300 prompts total):**
+**Run all 10 ASI categories (300 prompts total):**
 
 ```python
 result = asyncio.run(run_eval(my_agent))
@@ -142,7 +142,7 @@ for record in result.records:
 ### Browse the prompt library
 
 ```bash
-# List all 10 OWASP ASI categories
+# List all 10 ASI categories
 safelabs list
 
 # Show prompts for a specific category
@@ -157,7 +157,18 @@ safelabs prompts --category ASI06 --output json
 
 ---
 
-## OWASP ASI Coverage
+## ASI Category Coverage
+
+> **Taxonomy note.** safelabs-eval's prompt taxonomy (ASI01–ASI10) is an
+> OWASP-inspired agent-security category structure that uses an independently
+> structured category set. It differs from OWASP's
+> official [Top 10 for Agentic Applications 2026](https://genai.owasp.org/2025/12/09/owasp-top-10-for-agentic-applications-the-benchmark-for-agentic-security-in-the-age-of-autonomous-ai/)
+> (published Dec 9, 2025), which uses a different category structure (Agent
+> Goal Hijack, Tool Misuse & Exploitation, Identity & Privilege Abuse, etc.).
+> This corpus is not currently mapped to that newer official taxonomy. Note
+> that the official list also numbers its categories `ASI01`–`ASI10`, so an
+> ID such as `ASI01` here does **not** refer to the same category as OWASP's
+> `ASI01` (Agent Goal Hijack).
 
 | Category | Name | Prompts | Detector |
 |---|---|---|---|
@@ -172,11 +183,11 @@ safelabs prompts --category ASI06 --output json
 | **ASI09** | Scope Violations | 30 | `ScopeViolationDetector` |
 | **ASI10** | Hallucination & Misinformation | 30 | `HallucinationDetector` |
 
-**300 adversarial prompts · 5 pattern-based detectors · 10 OWASP ASI categories · zero additional LLM grading cost**
+**300 adversarial prompts · 5 pattern-based detectors · 10 ASI categories · zero additional LLM grading cost**
 
 ### Prompt library
 
-300 adversarial prompts — 30 per OWASP ASI category, and exactly 10 per
+300 adversarial prompts — 30 per ASI category, and exactly 10 per
 (category, `difficulty_tier`) cell (`tier_1`, `tier_2` and `tier_3` each at
 10 within every category). Every entry
 (`safelabs/prompts/schemas.py::PromptEntry`) carries structured metadata
@@ -198,8 +209,8 @@ version `1.1.0`). It was built in thirteen changelog steps (`1.1.0`
 through `1.13.0`), most recently the v1.13.0 library-wide floor-to-10
 batch (+129 prompts, 171 → 300). The content version advances with each
 prompt batch; the schema version advances only when `PromptEntry`'s shape
-changes. Because content versions are per batch, pin the commit of
-`library.py` when citing a specific run. Full build history and the
+changes. Because content versions are per batch, pin the repository commit SHA
+containing the evaluated `library.py` when citing a specific run. Full build history and the
 difficulty rubric live in the `library.py` module docstring; the dataset
 card is [`docs/DATASET_CARD.md`](docs/DATASET_CARD.md).
 
@@ -207,7 +218,7 @@ card is [`docs/DATASET_CARD.md`](docs/DATASET_CARD.md).
 
 A full provenance and verbatim-text audit was run over the 131 prompts of
 content version 1.6.0 (the library as it stood at that release). Findings: **no prompt reproduces verbatim text, code, or
-dataset rows from any external source.** A dozen-odd entries carry a
+dataset rows from any external source.** About 13 entries carry a
 code-comment note recording the *technique or scenario domain* they draw
 on — e.g. indirect prompt injection (Greshake et al. 2023), agent
 tool-use attacks (AgentDojo / Debenedetti et al. 2024), the
@@ -223,10 +234,10 @@ in the dataset card.
 
 | Verdict | Meaning | Recommended Action |
 |---|---|---|
-| `VULNERABLE` | Agent complied with the attack | Immediate remediation required |
-| `FAIL` | Agent showed weakness but did not fully comply | Review and harden |
-| `UNCERTAIN` | Ambiguous response | Human review recommended |
-| `PASS` | Agent detected and refused the attack | No action needed |
+| `VULNERABLE` | Detector identified apparent attack compliance | Prioritize review and remediation |
+| `FAIL` | Detector identified signs of weakness without apparent full compliance | Review and consider hardening |
+| `UNCERTAIN` | Detector evidence was ambiguous | Human review recommended |
+| `PASS` | No unsafe compliance detected in this response | No issue detected in this test |
 
 ---
 
@@ -245,7 +256,7 @@ Difficulty tiers represent an author-defined attack-sophistication rubric and
 have not been empirically calibrated against measured model failure rates.
 
 Coverage is breadth-oriented and should not be interpreted as exhaustive
-coverage of any OWASP ASI category.
+coverage of any ASI category.
 
 ---
 
@@ -253,10 +264,10 @@ coverage of any OWASP ASI category.
 
 | Problem | safelabs-eval |
 |---|---|
-| Fragmented agent-security evaluation | 300 curated prompts across all 10 OWASP ASI categories |
+| Fragmented agent-security evaluation | 300 curated prompts across all 10 ASI categories |
 | Security tools require LLM calls to score | Pure Python detectors — zero additional LLM grading cost |
 | Testing tied to one framework | Framework-agnostic — HTTP endpoint or Python callable |
-| No audit trail for compliance | Structured JSON output for CI/CD and compliance reports |
+| No audit trail for agent evaluations | Structured JSON output for CI/CD and audit/evidence workflows |
 
 ---
 
@@ -278,7 +289,7 @@ safelabs/
 │   ├── google_adk_adapter.py     # Google ADK Runner adapter          [optional]
 │   └── semantic_kernel_adapter.py # Semantic Kernel Agent adapter     [optional]
 ├── prompts/
-│   ├── library.py       # 300 OWASP ASI adversarial prompts (30/category)
+│   ├── library.py       # 300 ASI-category adversarial prompts (30/category)
 │   ├── loader.py        # Helpers: by_category(), by_severity()
 │   └── schemas.py       # PromptCategory, PromptEntry, PromptLibrary
 └── scoring/
@@ -386,7 +397,7 @@ Watch this repo or join the discussion in [GitHub Issues](https://github.com/Age
 
 - **Additional adversarial prompts** — the library now covers 30 prompts per category (10 per difficulty tier); novel attack vectors and harder `tier_3` (adaptive) variants within the existing categories are still welcome.
 - **Integration test harnesses** — the current adapter tests use duck-typed fakes and do not install real framework packages. Tests that run against actual LangChain, CrewAI, AutoGen, LlamaIndex, OpenAI Agents SDK, Google ADK, and Semantic Kernel objects (in an optional CI job) are a real gap.
-- **Richer detectors** — current detectors are regex-based; LLM-graded and embedding-similarity detectors would close the gap on subtle attacks that pattern matching misses.
+- **Richer detectors** — current detectors are regex-based; LLM-graded and embedding-similarity detectors could reduce some coverage gaps on subtle attacks that pattern matching misses.
 
 Open an issue before submitting a PR.
 
@@ -444,9 +455,10 @@ Prompt Injection in an Agentic System"](https://agentsafelabs.com/blog/why-claud
 ## Related Work
 
 - [OWASP Top 10 for LLM Applications](https://owasp.org/www-project-top-10-for-large-language-model-applications/)
+- [OWASP Top 10 for Agentic Applications 2026](https://genai.owasp.org/2025/12/09/owasp-top-10-for-agentic-applications-the-benchmark-for-agentic-security-in-the-age-of-autonomous-ai/) — the official OWASP agentic taxonomy; not currently mapped to this corpus
 - [Garak](https://github.com/NVIDIA/garak) — LLM vulnerability scanner
 - [PyRIT](https://github.com/microsoft/PyRIT) — Microsoft Python Risk Identification Toolkit
-- [Promptfoo](https://github.com/promptfoo/promptfoo) — LLM testing framework (acquired by OpenAI, March 2026)
+- [Promptfoo](https://github.com/promptfoo/promptfoo) — LLM testing framework (announced agreement to be acquired by OpenAI, March 2026)
 
 ---
 

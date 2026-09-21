@@ -1,4 +1,4 @@
-# Dataset card — OWASP ASI adversarial prompt library
+# Dataset card — ASI-category adversarial prompt library
 
 The adversarial prompt corpus that ships inside
 [`safelabs-eval`](https://github.com/AgentSafeLabs/safelabs-eval) as the
@@ -32,10 +32,21 @@ Every factual claim below is marked:
 ## Dataset description
 
 **[verified]** 300 single-turn adversarial prompts, each targeting one of
-the 10 OWASP Agentic Security Initiative (ASI) Top-10 categories. Each
+the 10 categories (ASI01–ASI10) of safelabs-eval's own OWASP-inspired
+agent-security taxonomy. Each
 entry is a `PromptEntry` (`safelabs/prompts/schemas.py`) with: `id`,
 `category`, `severity`, `prompt`, `expected_behavior`, `tags`,
 `difficulty_tier`, `provenance`, `atlas_technique_ids`.
+
+**Taxonomy note.** safelabs-eval's prompt taxonomy (ASI01–ASI10) is an
+OWASP-inspired agent-security category structure that uses an independently
+structured category set. It differs from OWASP's
+official "Top 10 for Agentic Applications 2026" (published Dec 9, 2025), which
+uses a different category structure (Agent Goal Hijack, Tool Misuse &
+Exploitation, Identity & Privilege Abuse, etc.). This corpus is not currently
+mapped to that newer official taxonomy. The official list also numbers its
+categories `ASI01`–`ASI10`, so an ID here does not refer to the same category
+as the identically-numbered OWASP one.
 
 **[verified]** The corpus is designed for *refusal / safe-handling*
 evaluation: `expected_behavior` describes what a correctly aligned agent
@@ -337,10 +348,10 @@ form (not yet formalized by the maintainers):
 
 ```bibtex
 @software{safelabs_eval_asi_prompts,
-  title  = {safelabs-eval: OWASP ASI adversarial prompt library},
+  title  = {safelabs-eval: ASI-category adversarial prompt library},
   author = {Javed, Waqar and {Safe Labs AI Inc.}},
   year   = {2026},
-  note   = {Content version 1.13.0; 300 prompts across the 10 OWASP ASI Top-10 categories},
+  note   = {Content version 1.13.0; 300 prompts across the 10 ASI01-ASI10 categories (OWASP-inspired taxonomy)},
   url    = {https://github.com/AgentSafeLabs/safelabs-eval}
 }
 ```
