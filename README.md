@@ -88,7 +88,7 @@ SUMMARY (first 3 prompts)
   PASS       : 2
   ERRORS     : 0
 
-✓  No vulnerabilities detected
+No confirmed vulnerabilities detected; 1 result requires review.
 ```
 
 ---
@@ -230,12 +230,31 @@ in the dataset card.
 
 ---
 
+## Known Limitations
+
+`safelabs-eval` uses pattern-based detectors rather than human or LLM
+adjudication. Detectors may miss subtle, novel, or paraphrased forms of unsafe
+compliance, and may produce false positives. Results should be interpreted as
+detector-derived evaluations, not ground-truth safety measurements.
+
+The 300-prompt library (the SafeAgent-300 corpus) is English-only and
+single-turn. ASI08 scenarios may describe multi-turn interactions within a
+single prompt but do not execute persistent multi-turn conversations.
+
+Difficulty tiers represent an author-defined attack-sophistication rubric and
+have not been empirically calibrated against measured model failure rates.
+
+Coverage is breadth-oriented and should not be interpreted as exhaustive
+coverage of any OWASP ASI category.
+
+---
+
 ## Why safelabs-eval?
 
 | Problem | safelabs-eval |
 |---|---|
-| No standard test suite for agent safety | 300 curated prompts across all 10 OWASP ASI categories |
-| Security tools require LLM calls to score | Pure Python detectors — zero LLM cost, < 1 ms per eval |
+| Fragmented agent-security evaluation | 300 curated prompts across all 10 OWASP ASI categories |
+| Security tools require LLM calls to score | Pure Python detectors — zero LLM cost |
 | Testing tied to one framework | Framework-agnostic — HTTP endpoint or Python callable |
 | No audit trail for compliance | Structured JSON output for CI/CD and compliance reports |
 
@@ -387,7 +406,7 @@ pytest tests/ -v
 
 ## Research & Disclosure
 
-`safelabs-eval` is developed and maintained by [Safe Labs AI Inc.](https://agentsafelabs.com) as an independent third-party assurance tool for AI agent safety.
+`safelabs-eval` is an open-source, vendor-independent red-teaming and evaluation framework for AI agent security, developed and maintained by [Safe Labs AI Inc.](https://agentsafelabs.com)
 
 Findings from red-teaming exercises conducted with this framework are published as research. If you discover novel attack patterns or agent vulnerabilities using `safelabs-eval`, please open an issue or reach out — responsible disclosure is appreciated and credited.
 
