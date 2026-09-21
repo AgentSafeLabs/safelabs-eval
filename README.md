@@ -218,7 +218,7 @@ card is [`docs/DATASET_CARD.md`](docs/DATASET_CARD.md).
 
 A full provenance and verbatim-text audit was run over the 131 prompts of
 content version 1.6.0 (the library as it stood at that release). Findings: **no prompt reproduces verbatim text, code, or
-dataset rows from any external source.** About 13 entries carry a
+dataset rows from any external source.** A number of entries carry a
 code-comment note recording the *technique or scenario domain* they draw
 on — e.g. indirect prompt injection (Greshake et al. 2023), agent
 tool-use attacks (AgentDojo / Debenedetti et al. 2024), the
@@ -232,7 +232,10 @@ The `provenance` metadata field and the audit are separate things. The 169
 prompts added after v1.6.0 are labeled `original` in the corpus metadata but
 have not undergone the same full external-source provenance audit; the
 per-batch overlap checks that were run on them instead are described in
-[`CREDITS.md`](CREDITS.md).
+[`CREDITS.md`](CREDITS.md). That does not mean the newer prompts carry no
+sourcing information: at least one of them (`ASI01-018`, added in v1.7.0)
+has a source-lineage code comment citing garak's `dan` probe. It just hasn't
+had the same systematic review.
 
 ---
 

@@ -165,7 +165,7 @@ grammar. No entry uses `adapted-from:` or `derived-from-cve:`.
 **[verified]** Where a prompt's *construction* models a publicly
 described attack technique, that lineage is a code comment above the
 entry (`# provenance = "original" (text). ...`), not a field value.
-About 13 entries carry such a note. See
+A number of entries carry such a note. See
 [`CREDITS.md`](../CREDITS.md) for the full source list and licenses.
 
 ### `atlas_technique_ids`
@@ -270,7 +270,18 @@ is green at 160 passed / 1 skipped / 1 deselected this session.
   from any external source.** Marker scan returned zero hits. The two
   obfuscated payloads (`ASI01-009` base64, `ASI01-012` ROT13) decode to
   the library's own newly written sentences.
-- ~13 entries carry a code-comment note recording the *technique or
+- **Audit scope. [from changelog / verified]** The Stage-4a audit covers
+  only the 131 prompts of content version 1.6.0. The 169 prompts added
+  afterward (content versions 1.7.0-1.13.0) have not undergone the same full
+  external-source provenance and verbatim-text audit. The `library.py`
+  changelog records a "Stage-4a-standard" overlap/similarity comparison run
+  on each later batch before merge instead; see [`CREDITS.md`](../CREDITS.md).
+  That is not the same as the original audit, and no external-source
+  verbatim audit of those prompts is documented. This does not mean the newer
+  prompts carry no sourcing information: at least one post-audit prompt
+  (`ASI01-018`, added in v1.7.0) has a source-lineage code comment citing
+  garak's `dan` probe. It just hasn't had the same systematic review.
+- A number of entries carry a code-comment note recording the *technique or
   scenario domain* they draw on. Sources and their licenses:
   Greshake et al. 2023 (arXiv non-exclusive), Debenedetti et al. 2024 /
   AgentDojo (paper: arXiv non-exclusive; code: MIT), Perez & Ribeiro

@@ -26,7 +26,10 @@ content version 1.6.0. The 169 prompts added afterward (content versions
 "Stage-4a-standard" overlap comparison (difflib and n-gram, same-category and
 library-wide) run on each later batch before merge, but that is not the same
 as the original audit, and no external-source verbatim audit of those
-prompts is documented in this file.
+prompts is documented in this file. That does not mean the newer prompts
+carry no sourcing information: at least one post-audit prompt (`ASI01-018`,
+added in v1.7.0) has a source-lineage code comment citing garak's `dan`
+probe. It just hasn't had the same systematic review.
 
 This repository is licensed under **Apache-2.0** (see [`LICENSE`](LICENSE)).
 Nothing below imposes any obligation on downstream users of this
@@ -204,7 +207,7 @@ prompt should be revised.
 - The Stage-4a audit (131 prompts, content version 1.6.0) found no verbatim
   text, code, or dataset content from any source above; see "Audit scope"
   above for what it does not cover.
-- ~13 entries carry a code-comment note recording technique / scenario
+- A number of entries carry a code-comment note recording technique / scenario
   lineage; this file is the index of those sources. Four papers plus
   garak and PyRIT are cited by name in those comments; the "Do Anything
   Now" paper is not cited by any entry and is listed only as the
