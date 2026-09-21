@@ -19,7 +19,7 @@
 
 ---
 
-AI agents built on LangChain, CrewAI, AutoGen, LlamaIndex, the OpenAI Agents SDK, Google ADK, Semantic Kernel, and custom frameworks ship to production without systematic safety testing. `safelabs-eval` changes that.
+AI agents built on LangChain, CrewAI, AutoGen, LlamaIndex, the OpenAI Agents SDK, Google ADK, Semantic Kernel, and custom frameworks can reach production without systematic adversarial safety testing. `safelabs-eval` changes that.
 
 Point it at a supported HTTP agent endpoint — or wrap a Python callable — and it fires **300 curated adversarial prompts** (30 per category) across all 10 ASI categories, scores every response with pattern-based detectors, and produces a structured security report. The ASI01–ASI10 category structure is OWASP-inspired, not the official OWASP Top 10 for Agentic Applications 2026 — see the [taxonomy note](#asi-category-coverage).
 
@@ -39,7 +39,7 @@ pip install safelabs-eval
 
 ## Quick Start
 
-### Option 1 — CLI: test any HTTP agent endpoint
+### Option 1 — CLI: test a supported HTTP agent endpoint
 
 ```bash
 # Red-team a local agent against ASI01 (Prompt Injection)
@@ -227,6 +227,12 @@ Ribeiro 2022), multi-turn escalation (Crescendo / Russinovich et al.
 2024), and probe categories from garak and PyRIT. Each cited source and
 its license is listed in [`CREDITS.md`](CREDITS.md); the audit summary is
 in the dataset card.
+
+The `provenance` metadata field and the audit are separate things. The 169
+prompts added after v1.6.0 are labeled `original` in the corpus metadata but
+have not undergone the same full external-source provenance audit; the
+per-batch overlap checks that were run on them instead are described in
+[`CREDITS.md`](CREDITS.md).
 
 ---
 
@@ -426,8 +432,8 @@ three papers:
 
 - **ABC Merged** — detector-calibration reliability, combining the former
   Papers A, B and C.
-- **AgentPort-Bench** — cross-framework portability, combining the former
-  Papers D and E.
+- **AgentPort-Bench** — cross-framework portability, including controlled
+  evaluation across framework, model, and configuration variation.
 - **SafeAgent-300** — the 300-prompt benchmark paper.
 
 The four original Figshare preprints are listed below for reference. They are
