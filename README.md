@@ -394,14 +394,13 @@ three papers:
 - **SafeAgent-300** — the 300-prompt benchmark paper.
 
 The four original Figshare preprints are listed below for reference. They are
-the **original, superseded preprints**: they have been superseded by the
-merged versions currently in submission, and the merged papers should be
-treated as the current statement of the results.
+the original preprints; the merged papers above are the current, complete
+statement of this work.
 
-- ["Pattern-Matching Failures in LLM Refusal Detection: A Case Study in Detector Reliability"](https://doi.org/10.6084/m9.figshare.33110315) — original preprint (superseded; now part of ABC Merged)
-- ["Does a Pattern-Matching Detector Fix Generalize? A Six-Model Replication and the Prompt Shapes That Break It"](https://doi.org/10.6084/m9.figshare.33110402) — original preprint (superseded; now part of ABC Merged)
-- ["Replicating a Detector-Calibration False-Positive Pattern in GPT-5.5 Prompt-Injection Verdicts Across a Second Model and Category"](https://doi.org/10.6084/m9.figshare.33110474) — original preprint (superseded; now part of ABC Merged)
-- ["Cross-Framework Portability of Agentic AI Security: A Controlled, Payload-Verified Evaluation"](https://doi.org/10.6084/m9.figshare.33110642) — original preprint (superseded; now part of AgentPort-Bench)
+- ["Pattern-Matching Failures in LLM Refusal Detection: A Case Study in Detector Reliability"](https://doi.org/10.6084/m9.figshare.33110315) — original preprint; now part of ABC Merged
+- ["Does a Pattern-Matching Detector Fix Generalize? A Six-Model Replication and the Prompt Shapes That Break It"](https://doi.org/10.6084/m9.figshare.33110402) — original preprint; now part of ABC Merged
+- ["Replicating a Detector-Calibration False-Positive Pattern in GPT-5.5 Prompt-Injection Verdicts Across a Second Model and Category"](https://doi.org/10.6084/m9.figshare.33110474) — original preprint; now part of ABC Merged
+- ["Cross-Framework Portability of Agentic AI Security: A Controlled, Payload-Verified Evaluation"](https://doi.org/10.6084/m9.figshare.33110642) — original preprint; now part of AgentPort-Bench
 
 The exploratory run that motivated Paper A is documented in the original
 blog post: ["Why Claude Haiku Returned UNCERTAIN: Anatomy of an Indirect
