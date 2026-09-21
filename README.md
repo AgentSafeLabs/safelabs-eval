@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="docs/assets/logo-full.png" alt="safelabs-eval" width="400">
+</p>
+
 # safelabs-eval
 
 **Open-source red-teaming and evaluation framework for AI agents — aligned to the OWASP Agentic Security Initiative (ASI) Top 10.**
