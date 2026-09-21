@@ -1,11 +1,7 @@
 <p align="center">
   <img src="docs/assets/logo-full.png" alt="safelabs-eval" width="400">
 </p>
-
-# safelabs-eval
-
-**Open-source red-teaming and evaluation framework for AI agents — aligned to the OWASP Agentic Security Initiative (ASI) Top 10.**
-
+<p align="center">
 [![CI](https://github.com/AgentSafeLabs/safelabs-eval/actions/workflows/ci.yml/badge.svg)](https://github.com/AgentSafeLabs/safelabs-eval/actions/workflows/ci.yml)
 [![Tests](https://img.shields.io/badge/tests-377%20passed-brightgreen)](https://github.com/AgentSafeLabs/safelabs-eval/tree/main/tests)
 [![Python](https://img.shields.io/badge/python-3.11%2B-blue)](https://www.python.org/)
@@ -13,6 +9,11 @@
 [![OWASP ASI](https://img.shields.io/badge/OWASP-ASI%20Top%2010-red)](https://owasp.org/www-project-top-10-for-large-language-model-applications/)
 [![PyPI version](https://badge.fury.io/py/safelabs-eval.svg)](https://pypi.org/project/safelabs-eval/)
 [![PyPI - Python Version](https://img.shields.io/pypi/pyversions/safelabs-eval)](https://pypi.org/project/safelabs-eval/)
+</p>
+
+# safelabs-eval
+
+**Open-source red-teaming and evaluation framework for AI agents — aligned to the OWASP Agentic Security Initiative (ASI) Top 10.**
 
 ---
 
