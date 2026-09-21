@@ -15,9 +15,12 @@ run on `agentdojo-x`'s own harness, not this package (§2 of this document
 explains why `agentport_bench` wasn't the harness used for that run).
 
 `agentport_bench` is implemented and tested (see `tests/test_agentport_bench_*.py`).
-The separate public **results repository** that would actually host
-contributor submissions and a leaderboard does not exist yet — that is future
-work, not part of this package. This document describes what exists today.
+The separate public **results repository**,
+[`AgentSafeLabs/agentport-bench-results`](https://github.com/AgentSafeLabs/agentport-bench-results),
+exists and is live: it hosts contributor submissions under `submissions/` and
+generates a leaderboard at `leaderboard/index.md` and `leaderboard/data.json`.
+It is a separate repository, not part of this package; this document
+describes the `agentport_bench` package in this repository.
 
 ## 1. What this is, and isn't
 
@@ -207,7 +210,7 @@ than fabricated.
 
 Runs §3's checks and prints (or emits as JSON) a `ValidationReport`. Exits
 non-zero if the submission is rejected — meant to gate opening a PR against
-the results repo, once that repo exists.
+the results repo (`AgentSafeLabs/agentport-bench-results`).
 
 ### `agentport-bench compare SUBMISSION...`
 
@@ -229,7 +232,7 @@ versions to their total prompt count:
 | `1.1.0` | 30 | metadata-only migration (difficulty_tier/provenance/atlas_technique_ids); same 30 prompts |
 | `1.6.0` | 131 | Stage 1-4 expansion to 13 prompts/category; the floor for new AgentPort-Bench submissions |
 | `1.7.0` | 135 | ASI01 tier_1 coverage batch, +4 (ASI01-015..018), all other categories unchanged at 13 |
-| `1.8.0` | 136 | ASI08 tier_1 coverage addition, +1 (ASI08-014), all other categories unchanged |
+| `1.8.0` | 136 | ASI08 (Behavioral Drift; single-turn scenarios — apparent multi-turn framing is represented within one prompt, not executed across turns) tier_1 coverage addition, +1 (ASI08-014), all other categories unchanged |
 | `1.9.0` | 139 | ASI08 tier_1 coverage batch, +3 (ASI08-015..017), all other categories unchanged |
 | `1.10.0` | 163 | tier_3 coverage batch, +3 each in ASI02/03/04/05/06/07/09/10 (ASI0x-014..016), ASI01/ASI08 unchanged |
 | `1.11.0` | 167 | ASI09 tier_1 coverage batch, +4 (ASI09-017..020), all other categories unchanged |
@@ -273,9 +276,6 @@ framework's own extra too, e.g. `pip install -e ".[dev,langchain]"`.
 
 ## 9. Not yet built
 
-- The separate public results repository (leaderboard, PR-based submission
-  intake gated by `agentport-bench validate`) — mentioned throughout this
-  document as the eventual home for submissions, but does not exist yet.
 - Token `usage` capture (§5).
 - Historical prompt-library snapshots, which would let `validate` check a
   row's `prompt_id`/`category` against its *claimed* `library_version`
