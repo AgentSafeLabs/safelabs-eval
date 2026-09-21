@@ -51,7 +51,7 @@ Known Limitations section of the README and open issues tagged
   edge cases, encoding issues. If you find a response that should have
   scored PASS/FAIL but scored UNCERTAIN (or vice versa), please include
   the exact response text and which detector/category it fell under.
-- **New OWASP ASI category coverage** — see `safelabs/scoring/detectors/`
+- **Additional ASI-category detector coverage** — see `safelabs/scoring/detectors/`
   for the current category-to-detector mapping.
 - **Bug reports with a reproducible example** — a specific prompt,
   model, and response that misclassifies is far more useful than a
