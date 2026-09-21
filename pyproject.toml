@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "safelabs-eval"
 version = "0.10.1"
-description = "OWASP-aligned red-teaming and evaluation framework for AI agents"
+description = "Open-source red-teaming and evaluation framework for AI agents, built around an OWASP-inspired ASI01-ASI10 taxonomy"
 readme = "README.md"
 license = { text = "Apache-2.0" }
 authors = [
