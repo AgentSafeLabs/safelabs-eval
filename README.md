@@ -10,6 +10,7 @@
 [![Taxonomy: OWASP-inspired](https://img.shields.io/badge/taxonomy-OWASP--inspired-red?style=flat-square)](https://owasp.org/www-project-top-10-for-large-language-model-applications/)
 [![PyPI version](https://badge.fury.io/py/safelabs-eval.svg)](https://pypi.org/project/safelabs-eval/)
 [![PyPI - Python Version](https://img.shields.io/pypi/pyversions/safelabs-eval?style=flat-square)](https://pypi.org/project/safelabs-eval/)
+[![DOI](https://zenodo.org/badge/1249027272.svg)](https://doi.org/10.5281/zenodo.22826282)
 
 </div>
 
@@ -213,6 +214,8 @@ changes. Because content versions are per batch, pin the repository commit SHA
 containing the evaluated `library.py` when citing a specific run. Full build history and the
 difficulty rubric live in the `library.py` module docstring; the dataset
 card is [`docs/DATASET_CARD.md`](docs/DATASET_CARD.md).
+
+**Dataset.** SafeAgent-300, a redacted evaluation dataset produced with this framework (safelabs-eval 0.10.1, prompt library 1.13.0): [10.5281/zenodo.23092031](https://doi.org/10.5281/zenodo.23092031) (all versions); v1.0.0: [10.5281/zenodo.23092032](https://doi.org/10.5281/zenodo.23092032). Raw model outputs are withheld; see the dataset's datasheet.
 
 ### Provenance & licensing
 
