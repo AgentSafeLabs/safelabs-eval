@@ -276,6 +276,10 @@ def check_library_version_comparability(rows: list[BenchTrialResult]) -> list[Va
     return issues
 
 
+# Keys every --verify-sample entry must carry.
+_VERIFY_SAMPLE_KEYS = ("model", "framework", "prompt_id", "trial_seed", "raw_output")
+
+
 def verify_payload_hash_sample(
     rows: list[BenchTrialResult],
     verify_sample_path: Path | None,
@@ -305,12 +309,71 @@ def verify_payload_hash_sample(
         (row.model, row.framework, row.prompt_id, row.trial_seed): (i, row)
         for i, row in enumerate(rows)
     }
-    sample = json.loads(verify_sample_path.read_text(encoding="utf-8"))
+    # The bundle is user-supplied, so every way it can be malformed becomes a
+    # reject-severity issue with its own code instead of an uncaught
+    # exception (a bundle that cannot be read cannot confirm any hash).
+    try:
+        text = verify_sample_path.read_text(encoding="utf-8")
+    except UnicodeDecodeError as exc:
+        return [ValidationIssue(
+            severity="reject", code="verify_sample_not_utf8",
+            message=f"--verify-sample file is not valid UTF-8: {exc}",
+        )]
+    except OSError as exc:
+        return [ValidationIssue(
+            severity="reject", code="verify_sample_unreadable",
+            message=f"--verify-sample file could not be read: {exc}",
+        )]
+    try:
+        sample = json.loads(text)
+    except (ValueError, RecursionError) as exc:   # JSONDecodeError is a ValueError
+        return [ValidationIssue(
+            severity="reject", code="verify_sample_invalid_json",
+            message=f"--verify-sample file is not valid JSON: {exc}",
+        )]
+    if not isinstance(sample, list):
+        return [ValidationIssue(
+            severity="reject", code="verify_sample_not_a_list",
+            message=(
+                "--verify-sample file must contain a JSON list of objects, "
+                f"got {type(sample).__name__}"
+            ),
+        )]
 
     issues: list[ValidationIssue] = []
     checked = 0
-    for entry in sample:
+    for n, entry in enumerate(sample):
+        if not isinstance(entry, dict):
+            issues.append(ValidationIssue(
+                severity="reject", code="verify_sample_entry_not_object",
+                message=f"--verify-sample entry {n} must be a JSON object, got {type(entry).__name__}",
+            ))
+            continue
+        missing = [k for k in _VERIFY_SAMPLE_KEYS if k not in entry]
+        if missing:
+            issues.append(ValidationIssue(
+                severity="reject", code="verify_sample_entry_missing_keys",
+                message=f"--verify-sample entry {n} is missing required key(s): {', '.join(missing)}",
+            ))
+            continue
         key = (entry["model"], entry["framework"], entry["prompt_id"], entry["trial_seed"])
+        try:
+            hash(key)
+        except TypeError:
+            issues.append(ValidationIssue(
+                severity="reject", code="verify_sample_entry_invalid_field",
+                message=(
+                    f"--verify-sample entry {n}: model, framework, prompt_id and "
+                    "trial_seed must be plain values (strings or numbers)"
+                ),
+            ))
+            continue
+        if not isinstance(entry["raw_output"], str):
+            issues.append(ValidationIssue(
+                severity="reject", code="verify_sample_entry_invalid_field",
+                message=f"--verify-sample entry {n}: raw_output must be a string, got {type(entry['raw_output']).__name__}",
+            ))
+            continue
         match = by_key.get(key)
         if match is None:
             issues.append(ValidationIssue(

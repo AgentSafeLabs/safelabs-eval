@@ -312,6 +312,137 @@ def test_payload_hash_sample_flags_entry_with_no_matching_row(tmp_path):
     assert issues[0].code == "verify_sample_no_matching_row"
 
 
+# ── verify_payload_hash_sample: malformed --verify-sample bundles (issue #48) ─
+# A user-supplied bundle can be broken in many ways; every one must come back
+# as a reject-severity ValidationIssue with its own code, never an exception.
+
+def _verify_rows():
+    from agentport_bench.schema import BenchTrialResult
+    return [BenchTrialResult(**_row())]
+
+
+def _valid_entry(**overrides: object) -> dict:
+    entry = {
+        "model": "claude-opus-4-8", "framework": "http",
+        "prompt_id": "ASI01-001", "trial_seed": 0, "raw_output": "some output",
+    }
+    entry.update(overrides)
+    return entry
+
+
+def test_payload_hash_sample_rejects_truncated_json(tmp_path):
+    sample_path = tmp_path / "sample.json"
+    sample_path.write_text(json.dumps([_valid_entry()])[:-15])   # cut off mid-object
+    issues = verify_payload_hash_sample(_verify_rows(), sample_path)
+    assert len(issues) == 1
+    assert issues[0].severity == "reject"
+    assert issues[0].code == "verify_sample_invalid_json"
+    assert "not valid JSON" in issues[0].message
+
+
+def test_payload_hash_sample_rejects_empty_file(tmp_path):
+    sample_path = tmp_path / "sample.json"
+    sample_path.write_text("")
+    issues = verify_payload_hash_sample(_verify_rows(), sample_path)
+    assert [i.code for i in issues] == ["verify_sample_invalid_json"]
+
+
+def test_payload_hash_sample_rejects_non_utf8_bytes(tmp_path):
+    sample_path = tmp_path / "sample.json"
+    sample_path.write_bytes(b'[{"model": "\xff\xfe\xfa"}]')
+    issues = verify_payload_hash_sample(_verify_rows(), sample_path)
+    assert len(issues) == 1
+    assert issues[0].severity == "reject"
+    assert issues[0].code == "verify_sample_not_utf8"
+
+
+def test_payload_hash_sample_rejects_unreadable_path(tmp_path):
+    # a directory exists but cannot be read as a file
+    issues = verify_payload_hash_sample(_verify_rows(), tmp_path)
+    assert len(issues) == 1
+    assert issues[0].severity == "reject"
+    assert issues[0].code == "verify_sample_unreadable"
+
+
+@pytest.mark.parametrize("payload", [{"model": "x"}, "a string", 42, None])
+def test_payload_hash_sample_rejects_non_list_top_level(tmp_path, payload):
+    sample_path = tmp_path / "sample.json"
+    sample_path.write_text(json.dumps(payload))
+    issues = verify_payload_hash_sample(_verify_rows(), sample_path)
+    assert len(issues) == 1
+    assert issues[0].severity == "reject"
+    assert issues[0].code == "verify_sample_not_a_list"
+
+
+def test_payload_hash_sample_rejects_entry_missing_raw_output(tmp_path):
+    entry = _valid_entry()
+    del entry["raw_output"]
+    sample_path = tmp_path / "sample.json"
+    sample_path.write_text(json.dumps([entry]))
+    issues = verify_payload_hash_sample(_verify_rows(), sample_path)
+    assert len(issues) == 1
+    assert issues[0].severity == "reject"
+    assert issues[0].code == "verify_sample_entry_missing_keys"
+    assert "raw_output" in issues[0].message
+
+
+def test_payload_hash_sample_rejects_entry_missing_identity_key(tmp_path):
+    entry = _valid_entry()
+    del entry["prompt_id"]
+    sample_path = tmp_path / "sample.json"
+    sample_path.write_text(json.dumps([entry]))
+    issues = verify_payload_hash_sample(_verify_rows(), sample_path)
+    assert [i.code for i in issues] == ["verify_sample_entry_missing_keys"]
+    assert "prompt_id" in issues[0].message
+
+
+@pytest.mark.parametrize("bad", ["a string", 7, None, ["a", "list"]])
+def test_payload_hash_sample_rejects_non_object_entry(tmp_path, bad):
+    sample_path = tmp_path / "sample.json"
+    sample_path.write_text(json.dumps([bad]))
+    issues = verify_payload_hash_sample(_verify_rows(), sample_path)
+    assert len(issues) == 1
+    assert issues[0].severity == "reject"
+    assert issues[0].code == "verify_sample_entry_not_object"
+
+
+def test_payload_hash_sample_rejects_non_string_raw_output(tmp_path):
+    sample_path = tmp_path / "sample.json"
+    sample_path.write_text(json.dumps([_valid_entry(raw_output=123)]))
+    issues = verify_payload_hash_sample(_verify_rows(), sample_path)
+    assert [i.code for i in issues] == ["verify_sample_entry_invalid_field"]
+
+
+def test_payload_hash_sample_rejects_unhashable_identity_field(tmp_path):
+    sample_path = tmp_path / "sample.json"
+    sample_path.write_text(json.dumps([_valid_entry(model=["not", "a", "string"])]))
+    issues = verify_payload_hash_sample(_verify_rows(), sample_path)
+    assert [i.code for i in issues] == ["verify_sample_entry_invalid_field"]
+
+
+def test_payload_hash_sample_bad_entry_does_not_hide_good_entries(tmp_path):
+    # one bad entry between two good ones: the bad one is reported, the good
+    # ones are still checked (the second has a wrong raw_output -> mismatch)
+    sample = [_valid_entry(), "oops", _valid_entry(raw_output="a DIFFERENT output")]
+    sample_path = tmp_path / "sample.json"
+    sample_path.write_text(json.dumps(sample))
+    issues = verify_payload_hash_sample(_verify_rows(), sample_path)
+    assert sorted(i.code for i in issues) == ["payload_hash_mismatch", "verify_sample_entry_not_object"]
+    assert all(i.severity == "reject" for i in issues)
+
+
+def test_validate_submission_malformed_sample_never_raises_and_rejects(tmp_path):
+    path = tmp_path / "sub.jsonl"
+    path.write_text(_jsonl(_row()))
+    sample_path = tmp_path / "sample.json"
+    sample_path.write_text("{not json")
+    report = validate_submission(path, verify_sample_path=sample_path)
+    assert report.accepted is False
+    codes = [i.code for i in report.issues]
+    assert "verify_sample_invalid_json" in codes
+    assert report.completeness is not None      # the other checks still ran
+
+
 # ── build_completeness_report ─────────────────────────────────────────────
 
 def test_completeness_report_full_coverage():

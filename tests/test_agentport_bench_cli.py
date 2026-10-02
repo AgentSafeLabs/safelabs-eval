@@ -244,6 +244,36 @@ def test_validate_with_verify_sample_clears_unverified_flag(runner, tmp_path):
     assert "payload_hash_unverified" not in codes
 
 
+@pytest.mark.parametrize("content, code", [
+    (b'[{"model": "claude-opus-4-8"', "verify_sample_invalid_json"),   # truncated
+    (b'["\xff\xfe"]', "verify_sample_not_utf8"),
+    (b'{"not": "a list"}', "verify_sample_not_a_list"),
+])
+def test_validate_with_malformed_verify_sample_exits_nonzero_without_traceback(runner, tmp_path, content, code):
+    out = tmp_path / "sub.jsonl"
+    _write_jsonl(out, _row())
+    sample_path = tmp_path / "sample.json"
+    sample_path.write_bytes(content)
+    result = runner.invoke(main, ["validate", str(out), "--verify-sample", str(sample_path)])
+    assert result.exit_code != 0
+    assert result.exception is None or isinstance(result.exception, SystemExit)
+    assert "Traceback" not in result.output
+    assert code in result.output
+
+
+def test_validate_with_malformed_verify_sample_json_output_is_rejected(runner, tmp_path):
+    out = tmp_path / "sub.jsonl"
+    _write_jsonl(out, _row())
+    sample_path = tmp_path / "sample.json"
+    sample_path.write_text("")
+    result = runner.invoke(main, ["validate", str(out), "--verify-sample", str(sample_path), "-o", "json"])
+    assert result.exit_code == 1
+    assert "Traceback" not in result.output
+    report = json.loads(result.output)
+    assert report["accepted"] is False
+    assert "verify_sample_invalid_json" in {i["code"] for i in report["issues"]}
+
+
 # ── compare ───────────────────────────────────────────────────────────────
 
 def test_compare_single_submission_one_group(runner, tmp_path):
