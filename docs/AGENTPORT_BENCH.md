@@ -5,8 +5,7 @@ package in this repository: a schema, submission harness, validator, and CLI
 for a public, multi-contributor, cross-framework agent-safety benchmark built
 on safelabs-eval's ASI-category prompt library (an OWASP-inspired taxonomy) and scoring pipeline.
 
-**Paper E** — "AgentPort-Bench: An Eight-Framework Extension of a
-Cross-Framework Agentic Security Portability Evaluation" — discusses this package and the 8-framework
+**Paper E** — "AgentPort-Bench: A Controlled Seven-Framework Evaluation of Agentic AI Security Portability" — discusses this package and the eight-condition (seven frameworks plus baseline)
 CFPS extension it's positioned alongside. That extension's actual
 reconstruction/validation work lives in `agentdojo-x`'s
 `analysis/cfps_8fw_extension/` (see that folder's `PROVENANCE.md`) — it was
