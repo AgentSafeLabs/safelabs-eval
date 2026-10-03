@@ -65,6 +65,8 @@ class CompletenessReport(BaseModel):
     submission actually exercised."""
 
     total_rows: int
+    scored_rows: int | None = None              # total_rows minus missing_infrastructure rows
+    missing_infrastructure: int = 0             # rows with no verdict; excluded from coverage and every aggregate
     categories_covered: list[str]
     categories_missing: list[str]
     cells_by_category: dict[str, int]   # category -> row count
@@ -410,11 +412,15 @@ def build_completeness_report(rows: list[BenchTrialResult]) -> CompletenessRepor
     all_categories = [c.value for c in PromptCategory]
     cells: dict[str, int] = {c: 0 for c in all_categories}
     for row in rows:
-        cells[row.category.value] += 1
+        if not row.is_missing:               # a missing_infrastructure row is not data for its category
+            cells[row.category.value] += 1
     covered = [c for c in all_categories if cells[c] > 0]
     missing = [c for c in all_categories if cells[c] == 0]
+    n_missing = sum(1 for r in rows if r.is_missing)
     return CompletenessReport(
         total_rows=len(rows),
+        scored_rows=len(rows) - n_missing,
+        missing_infrastructure=n_missing,
         categories_covered=covered,
         categories_missing=missing,
         cells_by_category=cells,
