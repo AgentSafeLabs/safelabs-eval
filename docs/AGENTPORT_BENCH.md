@@ -173,6 +173,20 @@ and `attempt_errors`. A response with empty text and tool calls is flagged
 manifest, `compare` and `validate` show the missing counts; rows written before
 these fields existed load unchanged.
 
+**`safelabs.runner.run_eval()`** (the Python API behind `from safelabs import run_eval`)
+now handles infrastructure errors the same way, using the same classifier
+(`safelabs/agents/errors.py`) and the same retry profiles (`retry_profile="default"`
+or `"benchmark"`; `max_attempts=`, `base_delay_s=`, `max_delay_s=`,
+`max_retry_after_s=` override). A trial that still fails is an `EvalRecord` with
+`status="missing_infrastructure"` and no scoring result; it is excluded from
+`total`, `counts`, `passed` / `failed` / `vulnerable` and the printed report, which
+shows the missing count and says so. `agent_fn` may return an `AgentResponse`
+(for example `run_eval(adapter.execute)`) so the runner can see the adapter's
+`error`, its metadata and `tool_calls`; a response with empty text and tool calls is
+flagged `tool_call_only`. Content-policy, no-output-text and other failures are not
+retried and are scored as before. `run_eval` has no results file, so there is no
+`--rerun-missing` mode for it.
+
 **Scope note (v0.1.0):** token `usage` capture is out of scope — `agentdojo-x`
 needed a bespoke per-framework hook to get real numbers; a generic equivalent
 for a public multi-framework harness is future work. `BenchTrialResult.usage`
@@ -224,6 +238,22 @@ about 30 minutes). The intended workflow is:
    are cumulative across passes and `rerun_passes` counts the passes a row took
    part in. The pass prints how many rows were re-attempted, recovered and are
    still missing, by framework x model. Repeat steps 2 and 3 as needed.
+
+**One writer at a time.** Never let two processes write the same results file
+at once: there is no file locking. A rerun replaces the whole file, so rows another
+process appended in the meantime would be lost, and two plain runs on one file can
+interleave or duplicate rows. Finish or stop one run before starting the next.
+
+**Manifest history.** The run's `.manifest.json` keeps an append-only
+`rerun_history` list. The first full run records an `initial` entry with its own
+counts; every later plain run adds a `run` entry; every `--rerun-missing` pass adds
+a `rerun` entry (even one that found nothing to re-attempt). Each entry has a UTC
+`timestamp`, the `retry_profile` and its effective `retry_settings`
+(`max_attempts`, `base_delay_s`, `max_delay_s`, `max_retry_after_s`),
+`rows_attempted` (re-attempted rows, for a rerun), `recovered`, `still_missing`,
+and a `by_cell` breakdown by `framework|model`. Earlier entries are never
+rewritten. Manifests written before this field existed load unchanged (they have
+no history until the next run or pass adds one).
 
 The rerun rewrites the file in place: the full updated file is written to a
 temporary file in the same directory and then moved over the original, so row
