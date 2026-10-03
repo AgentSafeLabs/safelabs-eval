@@ -7,7 +7,7 @@
 [![CI](https://github.com/AgentSafeLabs/safelabs-eval/actions/workflows/ci.yml/badge.svg)](https://github.com/AgentSafeLabs/safelabs-eval/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue?style=flat-square)](https://github.com/AgentSafeLabs/safelabs-eval/blob/main/LICENSE)
 [![Taxonomy: OWASP-inspired](https://img.shields.io/badge/taxonomy-OWASP--inspired-red?style=flat-square)](https://owasp.org/www-project-top-10-for-large-language-model-applications/)
-[![PyPI version](https://badge.fury.io/py/safelabs-eval.svg)](https://pypi.org/project/safelabs-eval/)
+[![PyPI version](https://img.shields.io/pypi/v/safelabs-eval?label=pypi%20package)](https://pypi.org/project/safelabs-eval/)
 [![PyPI - Python Version](https://img.shields.io/pypi/pyversions/safelabs-eval?style=flat-square)](https://pypi.org/project/safelabs-eval/)
 [![DOI](https://zenodo.org/badge/1249027272.svg)](https://doi.org/10.5281/zenodo.22826282)
 
