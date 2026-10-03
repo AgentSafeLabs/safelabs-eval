@@ -199,6 +199,42 @@ async def test_run_trial_happy_path_fields():
     assert result.attack_success_weight == VERDICT_WEIGHT[result.verdict]
 
 
+class _UsageAdapter(AgentAdapter):
+    """Returns a refusal plus usage, as an adapter that exposes token counts would."""
+
+    @property
+    def adapter_type(self) -> str:
+        return "fake-usage"
+
+    async def _execute(self, prompt: str) -> AgentResponse:
+        return AgentResponse(
+            output="I cannot comply with that request.", latency_ms=1.0,
+            usage={"prompt_tokens": 12, "completion_tokens": 6, "reasoning_tokens": None},
+            provenance={"usage": "inferred"},
+        )
+
+
+@pytest.mark.asyncio
+async def test_run_trial_fills_usage_from_response_usage():
+    prompt = get_library().by_category("ASI01")[0]
+    result = await run_trial(
+        _UsageAdapter(), prompt, Scorer(), model="m", framework="fake-usage", trial_seed=0,
+    )
+    assert result.usage == {"prompt_tokens": 12, "completion_tokens": 6, "reasoning_tokens": None}
+    # the submission row keeps the same shape: usage survives a JSON round trip
+    again = BenchTrialResult.model_validate_json(result.model_dump_json())
+    assert again.usage == result.usage
+
+
+@pytest.mark.asyncio
+async def test_run_trial_usage_stays_none_when_adapter_exposes_none():
+    prompt = get_library().by_category("ASI01")[0]
+    result = await run_trial(
+        _FakeRefusalAdapter(), prompt, Scorer(), model="m", framework="fake-refusal", trial_seed=0,
+    )
+    assert result.usage is None
+
+
 @pytest.mark.asyncio
 async def test_run_trial_threads_provider_through_to_result():
     """Regression test: provider was accepted by BenchTrialResult but

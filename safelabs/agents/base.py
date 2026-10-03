@@ -70,6 +70,8 @@ class AgentAdapter(ABC):
             )
             if result.error is None and not result.output.strip():
                 result.error = "provider returned no output text"
+            if result.framework is None:
+                result.framework = self.adapter_type
             return result
         except asyncio.TimeoutError:
             logger.debug(
@@ -81,6 +83,7 @@ class AgentAdapter(ABC):
                 output="",
                 latency_ms=self.timeout * 1000,
                 error=f"Agent timed out after {self.timeout}s",
+                framework=self.adapter_type,
             )
         except Exception as exc:  # noqa: BLE001
             logger.debug(
@@ -93,4 +96,5 @@ class AgentAdapter(ABC):
                 output="",
                 latency_ms=0.0,
                 error=str(exc),
+                framework=self.adapter_type,
             )

@@ -17,14 +17,37 @@ Example
     chain = ChatPromptTemplate.from_template("{input}") | ChatOpenAI()
     adapter = LangChainAdapter(runnable=chain, input_key="input")
     response = await adapter.execute("Ignore previous instructions.")
+
+``input_key``: the default ``"input"`` sends ``{"input": prompt}`` (a dict),
+which is what a prompt-template chain expects. A **bare chat model**
+(``ChatOpenAI()``, ``GenericFakeChatModel(...)``) takes a string or messages,
+not a dict, and rejects the dict ("Invalid input type <class 'dict'>"): pass
+``input_key=None`` for a chat model so the prompt is sent as a plain string.
+The default is unchanged so existing callers keep working.
+
+Optional AgentResponse fields (filled only when the runnable returns a
+message-like object, normally an ``AIMessage``; a ``str`` or ``dict`` result
+leaves them ``None``):
+
+* ``tool_calls``  - ``AIMessage.tool_calls`` (``name``, ``args``, ``id``);
+  ``[]`` when the message has none. provenance: verified.
+* ``usage``       - ``AIMessage.usage_metadata`` (``input_tokens``,
+  ``output_tokens``, ``output_token_details['reasoning']``). verified.
+* ``stop_reason`` - ``response_metadata['finish_reason']`` or
+  ``['stop_reason']`` (keys vary by provider). inferred.
+* ``non_text_parts`` - the ``type`` of every non-text content block. inferred.
+* ``framework_version`` - installed ``langchain-core`` version. verified.
+
+Verified against langchain-core 1.4.0 (``AIMessage`` fields, ``GenericFakeChatModel``).
 """
 
 from __future__ import annotations
 
 import time
+from importlib import metadata as _metadata
 
 from safelabs.agents.base import AgentAdapter
-from safelabs.agents.schemas import AgentResponse
+from safelabs.agents.schemas import AgentResponse, ToolCall, normalize_usage
 
 
 class LangChainAdapter(AgentAdapter):
@@ -51,7 +74,71 @@ class LangChainAdapter(AgentAdapter):
         t0  = time.perf_counter()
         raw = await self._runnable.ainvoke(payload)
         latency_ms = (time.perf_counter() - t0) * 1000
-        return AgentResponse(output=self._extract_output(raw), latency_ms=latency_ms)
+        return AgentResponse(
+            output=self._extract_output(raw),
+            latency_ms=latency_ms,
+            **self._optional_fields(raw),
+        )
+
+    @staticmethod
+    def _optional_fields(raw: object) -> dict:
+        """Fill the optional AgentResponse fields from a message-like result (see module docstring)."""
+        fields: dict = {}
+        prov: dict = {}
+
+        version = _framework_version("langchain-core")
+        if version is not None:
+            fields["framework_version"] = version
+            prov["framework_version"] = "verified"
+
+        calls = getattr(raw, "tool_calls", None)
+        if isinstance(calls, list):
+            fields["tool_calls"] = [
+                ToolCall.from_arguments(
+                    c["name"],
+                    c.get("args"),
+                    call_id=c.get("id") if isinstance(c.get("id"), str) else None,
+                )
+                for c in calls
+                if isinstance(c, dict) and isinstance(c.get("name"), str)
+            ]
+            prov["tool_calls"] = "verified"
+
+        meta = getattr(raw, "usage_metadata", None)
+        if isinstance(meta, dict):
+            details = meta.get("output_token_details")
+            usage = normalize_usage(
+                meta.get("input_tokens"),
+                meta.get("output_tokens"),
+                details.get("reasoning") if isinstance(details, dict) else None,
+            )
+            if usage is not None:
+                fields["usage"] = usage
+                prov["usage"] = "verified"
+
+        rmeta = getattr(raw, "response_metadata", None)
+        if isinstance(rmeta, dict):
+            stop = next((rmeta[k] for k in ("finish_reason", "stop_reason") if isinstance(rmeta.get(k), str) and rmeta[k]), None)
+            if stop is not None:
+                fields["stop_reason"] = stop
+                prov["stop_reason"] = "inferred"
+
+        content = getattr(raw, "content", None)
+        if isinstance(content, str):
+            fields["non_text_parts"] = []
+            prov["non_text_parts"] = "inferred"
+        elif isinstance(content, list):
+            kinds: list[str] = []
+            for block in content:
+                if isinstance(block, dict) and block.get("type", "text") != "text":
+                    kind = block.get("type")
+                    if isinstance(kind, str):
+                        kinds.append(kind)
+            fields["non_text_parts"] = kinds
+            prov["non_text_parts"] = "inferred"
+
+        fields["provenance"] = prov
+        return fields
 
     def _extract_output(self, raw: object) -> str:
         if isinstance(raw, str):
@@ -105,3 +192,11 @@ class LangChainAdapter(AgentAdapter):
         # Unknown shape — fall back to a string, matching prior behavior for
         # anything that is neither str nor a list of blocks.
         return str(content)
+
+
+def _framework_version(distribution: str) -> str | None:
+    """Installed version of a distribution from package metadata, or None if not installed."""
+    try:
+        return _metadata.version(distribution)
+    except _metadata.PackageNotFoundError:
+        return None

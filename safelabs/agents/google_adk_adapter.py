@@ -51,17 +51,39 @@ be fully duck-typed away.  Both imports are deferred to the first
 without a real install, inject a duck-typed ``runner`` and a
 ``content_factory``; both lazy imports are then skipped.
 
+Optional AgentResponse fields (verified against google-adk 2.9.0 and
+google-genai 2.23.0 by running a real ``InMemoryRunner`` with a fake model):
+
+* ``tool_calls`` - every non-partial event's ``get_function_calls()``, with
+  ``ToolCall.result`` filled from the matching ``get_function_responses()``
+  (matched by call id, else by name; result is in memory only). ``[]`` when
+  events were seen and none carried a call; ``None`` when the events do not
+  expose ``get_function_calls`` (duck-typed fakes). provenance: verified.
+* ``usage`` - sum over non-partial events of ``usage_metadata``
+  ``prompt_token_count`` / ``candidates_token_count`` /
+  ``thoughts_token_count``; ADK reports thoughts separately from candidates,
+  so ``completion_tokens`` excludes ``reasoning_tokens``. inferred.
+* ``stop_reason`` - the final event's ``finish_reason`` value (for example
+  ``STOP``), unmodified. verified.
+* ``error_code`` - the last ``error_code`` any event carried. ``error`` itself
+  is unchanged. verified.
+* ``non_text_parts`` - kinds of non-text parts in the final event (for
+  example ``thought``); ``None`` when no final event arrived. inferred.
+* ``framework_version`` - installed ``google-adk`` version. verified.
+
 Always verify the exact API against your installed version's docs before
 trusting adapter output in production.
 """
 
 from __future__ import annotations
 
+import json
 import time
 from collections.abc import Callable
+from importlib import metadata as _metadata
 
 from safelabs.agents.base import AgentAdapter
-from safelabs.agents.schemas import AgentResponse
+from safelabs.agents.schemas import AgentResponse, ToolCall, normalize_usage
 
 
 class GoogleADKAdapter(AgentAdapter):
@@ -156,11 +178,13 @@ class GoogleADKAdapter(AgentAdapter):
             user_id=self._user_id,
         )
         final_text = ""
+        acc = _EventAccumulator()
         async for event in runner.run_async(
             user_id=self._user_id,
             session_id=session.id,
             new_message=message,
         ):
+            acc.add(event)
             # A single agent under test emits one final-response event; if
             # more than one arrives (e.g. after a tool round-trip) the last
             # non-empty one is the answer. Intermediate events — function
@@ -171,7 +195,7 @@ class GoogleADKAdapter(AgentAdapter):
             if text:
                 final_text = text
         latency_ms = (time.perf_counter() - t0) * 1000
-        return AgentResponse(output=final_text, latency_ms=latency_ms)
+        return AgentResponse(output=final_text, latency_ms=latency_ms, **acc.fields())
 
     @staticmethod
     def _text_from_content(content: object) -> str:
@@ -193,3 +217,120 @@ class GoogleADKAdapter(AgentAdapter):
             if isinstance(text, str) and text:
                 out.append(text)
         return "".join(out)
+
+
+_NON_TEXT_PART_ATTRS = (
+    "function_call",
+    "function_response",
+    "thought",
+    "inline_data",
+    "file_data",
+    "executable_code",
+    "code_execution_result",
+)
+
+
+class _EventAccumulator:
+    """Collects tool calls, usage, finish reason and error code from the event stream.
+
+    Only attributes the event actually has are read (``getattr`` with a
+    default), so a duck-typed fake event that exposes none of them yields
+    ``None`` fields rather than an error.
+    """
+
+    def __init__(self) -> None:
+        self._calls: list[ToolCall] = []
+        self._results: list[tuple[str | None, str | None, str | None]] = []  # (call_id, name, result)
+        self._calls_exposed = False
+        self._usage_seen = False
+        self._sums: dict[str, int | None] = {"prompt": None, "completion": None, "reasoning": None}
+        self._final = None
+        self._error_code: str | None = None
+
+    @staticmethod
+    def _add(total: int | None, value: object) -> int | None:
+        if isinstance(value, int) and not isinstance(value, bool):
+            return (total or 0) + value
+        return total
+
+    def add(self, event: object) -> None:
+        code = getattr(event, "error_code", None)
+        if code:
+            self._error_code = str(code)
+        if getattr(event, "partial", False):
+            return                      # streaming chunks: skip, so nothing is counted twice
+        getter = getattr(event, "get_function_calls", None)
+        if callable(getter):
+            self._calls_exposed = True
+            for fc in getter() or []:
+                name = getattr(fc, "name", None)
+                if isinstance(name, str):
+                    call_id = getattr(fc, "id", None)
+                    self._calls.append(ToolCall.from_arguments(
+                        name, getattr(fc, "args", None), call_id=call_id if isinstance(call_id, str) else None,
+                    ))
+        resp_getter = getattr(event, "get_function_responses", None)
+        if callable(resp_getter):
+            for fr in resp_getter() or []:
+                body = getattr(fr, "response", None)
+                result = None if body is None else json.dumps(body, default=str)
+                rid = getattr(fr, "id", None)
+                self._results.append((rid if isinstance(rid, str) else None, getattr(fr, "name", None), result))
+        um = getattr(event, "usage_metadata", None)
+        if um is not None:
+            self._usage_seen = True
+            self._sums["prompt"] = self._add(self._sums["prompt"], getattr(um, "prompt_token_count", None))
+            self._sums["completion"] = self._add(self._sums["completion"], getattr(um, "candidates_token_count", None))
+            self._sums["reasoning"] = self._add(self._sums["reasoning"], getattr(um, "thoughts_token_count", None))
+        is_final = getattr(event, "is_final_response", None)
+        if callable(is_final) and is_final():
+            self._final = event
+
+    def _attach_results(self) -> None:
+        pending = list(self._results)
+        for call in self._calls:
+            for i, (rid, name, result) in enumerate(pending):
+                if (call.call_id is not None and rid == call.call_id) or (call.call_id is None and rid is None and name == call.name):
+                    call.result = result
+                    del pending[i]
+                    break
+
+    @staticmethod
+    def _part_kinds(event: object) -> list[str]:
+        parts = getattr(getattr(event, "content", None), "parts", None) or []
+        kinds: list[str] = []
+        for part in parts:
+            for attr in _NON_TEXT_PART_ATTRS:
+                if getattr(part, attr, None):
+                    kinds.append(attr)
+        return kinds
+
+    def fields(self) -> dict:
+        fields: dict = {}
+        prov: dict = {}
+        try:
+            fields["framework_version"] = _metadata.version("google-adk")
+            prov["framework_version"] = "verified"
+        except _metadata.PackageNotFoundError:
+            pass
+        if self._calls_exposed:
+            self._attach_results()
+            fields["tool_calls"] = self._calls
+            prov["tool_calls"] = "verified"
+        if self._usage_seen:
+            usage = normalize_usage(self._sums["prompt"], self._sums["completion"], self._sums["reasoning"])
+            if usage is not None:
+                fields["usage"] = usage
+                prov["usage"] = "inferred"
+        if self._final is not None:
+            reason = getattr(self._final, "finish_reason", None)
+            if reason is not None:
+                fields["stop_reason"] = str(getattr(reason, "value", reason))
+                prov["stop_reason"] = "verified"
+            fields["non_text_parts"] = self._part_kinds(self._final)
+            prov["non_text_parts"] = "inferred"
+        if self._error_code is not None:
+            fields["error_code"] = self._error_code
+            prov["error_code"] = "verified"
+        fields["provenance"] = prov
+        return fields
