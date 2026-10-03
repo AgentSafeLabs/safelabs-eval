@@ -398,6 +398,8 @@ result = asyncio.run(run_eval(adapter.execute, categories=["ASI01", "ASI08"]))
 result.summary()
 ```
 
+Every adapter's `execute()` returns an `AgentResponse`. `run_eval(adapter.execute)` scores its `output` text and also reads its `error`, `metadata` and `tool_calls`; plain-string callables such as `my_agent` above still work as before.
+
 ---
 
 ## What's Coming
