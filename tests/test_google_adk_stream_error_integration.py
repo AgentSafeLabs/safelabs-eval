@@ -65,14 +65,14 @@ async def test_partial_chunks_are_passed_through_but_not_counted():
 
 
 @pytest.mark.asyncio
-async def test_error_event_without_text_sets_error_code_and_keeps_error_normalization():
+async def test_error_event_without_text_sets_error_from_error_message_and_keeps_error_code():
     agent = _agent(LlmResponse(
         error_code="SAFETY", error_message="blocked by policy",
         finish_reason=types.FinishReason.SAFETY, usage_metadata=_usage(4, 0),
     ))
     r = await GoogleADKAdapter(agent=agent).execute("hi")
     assert r.output == ""
-    assert r.error == "provider returned no output text"            # execute()'s rule, unchanged
+    assert r.error == "blocked by policy"                            # wave 2b: from Event.error_message (was the generic base-class text)
     assert r.error_code == "SAFETY" and r.provenance["error_code"] == "verified"
     assert r.stop_reason == "SAFETY"
     assert r.usage == {"prompt_tokens": 4, "completion_tokens": 0, "reasoning_tokens": None}
