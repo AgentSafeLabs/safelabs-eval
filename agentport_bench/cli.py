@@ -38,7 +38,10 @@ from agentport_bench.harness import (
     MISSING_EXCLUDED_NOTE,
     RunManifest,
     build_adapter,
+    format_rerun_lines,
     format_summary_lines,
+    rerun_missing,
+    resolve_retry_settings,
     run_matrix,
     summarize_rows,
     write_manifest,
@@ -105,29 +108,50 @@ def _parse_categories(categories: str | None) -> list[str] | None:
               help="Write raw model output to disk. Default off -- see docs/AGENTPORT_BENCH.md.")
 @click.option("--max-concurrency", default=1, show_default=True, type=int)
 @click.option("--timeout-s", default=30.0, show_default=True, type=float)
-@click.option("--max-attempts", default=3, show_default=True, type=click.IntRange(min=1),
-              help="Attempts per trial for infrastructure errors (rate limit, timeout, outage); 1 disables retries.")
-@click.option("--retry-base-delay-s", default=1.0, show_default=True, type=click.FloatRange(min=0.0),
-              help="First backoff delay in seconds; doubles each retry, with jitter. Retry-After is honoured.")
+@click.option("--retry-profile", default="default", show_default=True, type=click.Choice(["default", "benchmark"]),
+              help="default: 3 attempts, 1 s base, 60 s cap, Retry-After up to 300 s. benchmark: 6 attempts, 2 s base, "
+                   "120 s cap, Retry-After up to 600 s. The flags below override the profile.")
+@click.option("--max-attempts", default=None, type=click.IntRange(min=1),
+              help="Attempts per trial for infrastructure errors (rate limit, timeout, outage); 1 disables retries. Default: the profile's.")
+@click.option("--retry-base-delay-s", default=None, type=click.FloatRange(min=0.0),
+              help="First backoff delay in seconds; doubles each retry, with jitter. Retry-After is honoured. Default: the profile's.")
+@click.option("--retry-max-delay-s", default=None, type=click.FloatRange(min=0.0),
+              help="Cap on one backoff delay in seconds. Default: the profile's.")
+@click.option("--retry-after-cap-s", default=None, type=click.FloatRange(min=0.0),
+              help="Longest Retry-After the harness will wait, in seconds. Default: the profile's.")
+@click.option("--rerun-missing", is_flag=True, default=False,
+              help="With --resume: re-execute only the missing_infrastructure rows of --output (for this --model and adapter), "
+                   "rewriting the file in place; scored rows are not re-executed. Run it after a cool-down.")
 def run(adapter, model, provider, target, module, adapter_kwargs, categories, seeds,
         output, resume, dry_run, include_raw_output, max_concurrency, timeout_s,
-        max_attempts, retry_base_delay_s) -> None:
+        retry_profile, max_attempts, retry_base_delay_s, retry_max_delay_s, retry_after_cap_s,
+        rerun_missing) -> None:
     """Run the attack suite against your framework/model and emit an
     AgentPort-Bench-schema .jsonl submission. A trial that still fails with an
     infrastructure error after the last attempt is recorded as
-    missing_infrastructure (no verdict) and excluded from every aggregate."""
+    missing_infrastructure (no verdict) and excluded from every aggregate;
+    --rerun-missing tries those trials again later."""
+    if rerun_missing and not resume:
+        raise click.UsageError("--rerun-missing works on an existing output file; it cannot be combined with --no-resume")
     asyncio.run(_run_async(
         adapter, model, provider, target, module, adapter_kwargs, categories, seeds,
         output, resume, dry_run, include_raw_output, max_concurrency, timeout_s,
-        max_attempts, retry_base_delay_s,
+        retry_profile=retry_profile, max_attempts=max_attempts, retry_base_delay_s=retry_base_delay_s,
+        retry_max_delay_s=retry_max_delay_s, retry_after_cap_s=retry_after_cap_s, rerun_missing=rerun_missing,
     ))
 
 
 async def _run_async(
     adapter_name, model, provider, target, module, adapter_kwargs, categories, seeds,
     output, resume, dry_run, include_raw_output, max_concurrency, timeout_s,
-    max_attempts=3, retry_base_delay_s=1.0,
+    *, retry_profile="default", max_attempts=None, retry_base_delay_s=None,
+    retry_max_delay_s=None, retry_after_cap_s=None, rerun_missing=False,
 ) -> None:
+    retry = resolve_retry_settings(
+        retry_profile, max_attempts=max_attempts, base_delay_s=retry_base_delay_s,
+        max_delay_s=retry_max_delay_s, max_retry_after_s=retry_after_cap_s,
+    )
+    max_attempts = retry["max_attempts"]
     kwargs = _parse_adapter_kwargs(adapter_kwargs)
 
     if adapter_name == "http":
@@ -145,6 +169,10 @@ async def _run_async(
     run_categories = _DRY_RUN_CATEGORIES if dry_run else _parse_categories(categories)
     run_seeds = _DRY_RUN_SEEDS if dry_run else seeds
 
+    if rerun_missing:
+        await _rerun_missing_pass(adapter, adapter_name, model, output, run_categories, max_concurrency, retry, retry_profile)
+        return
+
     click.echo(f"\n{_BOLD}agentport-bench v{__version__}{_RESET}  --  {adapter_name} / {model}")
     click.echo(f"Output: {output}  (resume={resume}, seeds={run_seeds}, max_concurrency={max_concurrency})")
     if dry_run:
@@ -160,7 +188,8 @@ async def _run_async(
         categories=run_categories, seeds=run_seeds, output_path=output,
         resume=resume, include_raw_output=include_raw_output,
         max_concurrency=max_concurrency,
-        max_attempts=max_attempts, base_delay_s=retry_base_delay_s,
+        max_attempts=retry["max_attempts"], base_delay_s=retry["base_delay_s"],
+        max_delay_s=retry["max_delay_s"], max_retry_after_s=retry["max_retry_after_s"],
     ):
         count += 1
         results.append(result)
@@ -200,6 +229,7 @@ async def _run_async(
         tool_call_only=summary.tool_call_only,
         max_attempts=max_attempts,
         missing_trials_excluded=MISSING_EXCLUDED_NOTE,
+        retry_profile=retry_profile,
     )
     manifest_path = write_manifest(output, manifest)
 
@@ -211,6 +241,55 @@ async def _run_async(
     if include_raw_output:
         click.echo(f"{_YELLOW}--include-raw-output was set: {output} contains raw model text "
                    f"and should be treated as sensitive -- do not submit it as-is.{_RESET}")
+
+
+async def _rerun_missing_pass(adapter, adapter_name, model, output, run_categories, max_concurrency, retry, retry_profile) -> None:
+    """``run --rerun-missing``: re-execute the missing_infrastructure rows of an existing file, print the pass summary
+    by framework x model, and refresh the manifest sidecar's counts."""
+    if not output.exists():
+        raise click.ClickException(f"{output} does not exist; --rerun-missing needs the results file of an earlier run")
+    click.echo(f"{_YELLOW}--rerun-missing: re-executing only missing_infrastructure rows in {output}{_RESET}")
+    click.echo("─" * 60)
+    try:
+        summary = await rerun_missing(
+            adapter, model=model, framework=adapter_name, output_path=output, categories=run_categories,
+            max_concurrency=max_concurrency, max_attempts=retry["max_attempts"], base_delay_s=retry["base_delay_s"],
+            max_delay_s=retry["max_delay_s"], max_retry_after_s=retry["max_retry_after_s"],
+        )
+    except OSError as exc:
+        raise click.ClickException(str(exc)) from None
+    click.echo("─" * 60)
+    for line in format_rerun_lines(summary):
+        click.echo(line)
+    if not summary.rewrote_file:
+        click.echo("No manifest change.")
+        return
+    try:
+        rows = load_submission(output)
+    except ValueError as exc:
+        click.echo(f"{_YELLOW}Results rewritten, but the manifest was not refreshed: {exc}{_RESET}")
+        return
+    after = summarize_rows(rows)
+    path = output.with_suffix(".manifest.json")
+    if path.exists():
+        m = RunManifest.model_validate_json(path.read_text(encoding="utf-8"))
+        m.finished_at = datetime.now(timezone.utc).isoformat()
+    else:
+        first = rows[0]
+        unknown = "unknown (manifest regenerated from existing rows, not a live run)"
+        m = RunManifest(
+            harness_version=first.harness_version, library_version=first.library_version, model=first.model,
+            framework=first.framework, started_at=unknown, finished_at=datetime.now(timezone.utc).isoformat(),
+            trial_count=len(rows), include_raw_output=isinstance(first, BenchTrialResultWithRawOutput),
+        )
+    m.trial_count = len(rows)
+    m.scored_trials, m.missing_infrastructure, m.missing_by_cell = after.scored, after.missing_infrastructure, after.missing_by_cell
+    m.retries, m.tool_call_only = after.retries, after.tool_call_only
+    m.rerun_passes = max((r.rerun_passes for r in rows), default=0)
+    m.missing_trials_excluded = MISSING_EXCLUDED_NOTE
+    m.retry_profile = retry_profile
+    write_manifest(output, m)
+    click.echo(f"After the pass: {after.scored} scored, {after.missing_infrastructure} missing_infrastructure. Manifest: {path}")
 
 
 # ── manifest ──────────────────────────────────────────────────────────────

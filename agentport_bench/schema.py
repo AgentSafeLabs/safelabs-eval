@@ -241,6 +241,13 @@ class BenchTrialResult(BaseModel):
         default=None,
         description="True when the response had empty text and one or more tool calls and no error. Scoring is unchanged.",
     )
+    rerun_passes: int = Field(
+        default=0, ge=0,
+        description=(
+            "How many `run --rerun-missing` passes this row took part in (0 = none). With a rerun, `attempts` and "
+            "`attempt_errors` are cumulative across passes."
+        ),
+    )
     indicators: list[str] = Field(default_factory=list, description="Short detector trigger-pattern tags, not raw text.")
     usage: dict[str, int | None] | None = Field(default=None, description="{'prompt_tokens', 'completion_tokens', 'reasoning_tokens'}, where observable.")
 
