@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Protocol, runtime_checkable
+from typing import Any, Protocol, runtime_checkable
 
 from pydantic import BaseModel, Field
 
@@ -21,6 +21,7 @@ class JudgeResult(BaseModel):
     parsed_ok: bool = True
     error: str | None = None  # set when the backend call failed (label is then UNCLEAR)
     cached: bool = False
+    meta: dict[str, Any] = Field(default_factory=dict)  # e.g. neutralized_markers
 
 
 @runtime_checkable

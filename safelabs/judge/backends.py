@@ -30,20 +30,20 @@ class BaseJudgeBackend:
 
     async def judge(self, prompt: str, response: str, category: str, *, functional_content: bool = False) -> JudgeResult:
         enforce_content_guard(self, functional_content)
-        system, user = self.template.render(prompt=prompt, response=response, category=category)
+        system, user, info = self.template.render_with_info(prompt=prompt, response=response, category=category)
         t0 = time.perf_counter()
         try:
             raw, usage = await self._complete(system, user, {"prompt": prompt, "response": response, "category": category})
         except Exception as exc:  # noqa: BLE001 - recorded, never raised, so one bad call cannot stop a run
             return JudgeResult(
                 label=JudgeLabel.UNCLEAR, confidence=1, backend_id=self.backend_id, template_hash=self.template_hash,
-                latency_ms=(time.perf_counter() - t0) * 1000, error=f"{type(exc).__name__}: {str(exc)[:200]}",
+                latency_ms=(time.perf_counter() - t0) * 1000, error=f"{type(exc).__name__}: {str(exc)[:200]}", meta=info,
             )
         parsed = parse_judge_output(raw)
         return JudgeResult(
             label=parsed.label, confidence=parsed.confidence, rationale=parsed.rationale, raw=raw,
             backend_id=self.backend_id, template_hash=self.template_hash,
-            latency_ms=(time.perf_counter() - t0) * 1000, usage=dict(usage or {}), parsed_ok=parsed.parsed_ok,
+            latency_ms=(time.perf_counter() - t0) * 1000, usage=dict(usage or {}), parsed_ok=parsed.parsed_ok, meta=info,
         )
 
 
