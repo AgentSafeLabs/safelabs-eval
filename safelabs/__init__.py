@@ -2,7 +2,7 @@
 safelabs-eval
 =============
 Red-teaming and evaluation framework for AI agents, built around an
-OWASP-inspired ASI01-ASI10 taxonomy.
+OWASP-inspired agent-security taxonomy.
 
 Quick start
 -----------
@@ -23,7 +23,7 @@ Quick start
 GitHub: https://github.com/AgentSafeLabs/safelabs-eval
 """
 
-__version__ = "0.11.0"
+__version__ = "0.11.2"
 __author__  = "Waqar Javed"
 __license__ = "Apache-2.0"
 
