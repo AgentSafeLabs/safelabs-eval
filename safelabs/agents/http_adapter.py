@@ -4,7 +4,11 @@ safelabs/agents/http_adapter.py
 HTTP adapter — sends prompts to any agent exposed via a REST endpoint.
 
 POSTs JSON {"prompt": "<text>"} and extracts the response from common
-output keys: response, output, message, text, content, result.
+output keys: response, output, message, text, content, result. When none of
+those top-level keys is present, an OpenAI chat-completions body is read at
+``choices[0].message.content`` (a string); anything else falls back to the
+stringified body. Precedence: ``response_key``, the common keys, the
+OpenAI shape, the stringified body.
 """
 
 from __future__ import annotations
@@ -176,4 +180,24 @@ class HttpAdapter(AgentAdapter):
         for key in _RESPONSE_KEYS:
             if key in data:
                 return str(data[key])
+        content = self._openai_message_content(data)
+        if content is not None:
+            return content
         return str(data)
+
+    @staticmethod
+    def _openai_message_content(data: dict) -> str | None:
+        """``choices[0].message.content`` when it is a string, else None.
+
+        A ``content`` of None (a tool-call-only message) or a non-string
+        (content parts) is not read, so those bodies keep the stringified
+        fallback they had before.
+        """
+        choices = data.get("choices")
+        if not isinstance(choices, list) or not choices or not isinstance(choices[0], dict):
+            return None
+        message = choices[0].get("message")
+        if not isinstance(message, dict):
+            return None
+        content = message.get("content")
+        return content if isinstance(content, str) else None

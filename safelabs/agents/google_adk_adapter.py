@@ -65,8 +65,17 @@ google-genai 2.23.0 by running a real ``InMemoryRunner`` with a fake model):
   so ``completion_tokens`` excludes ``reasoning_tokens``. inferred.
 * ``stop_reason`` - the final event's ``finish_reason`` value (for example
   ``STOP``), unmodified. verified.
-* ``error_code`` - the last ``error_code`` any event carried. ``error`` itself
-  is unchanged. verified.
+* ``error_code`` - the last ``error_code`` any event carried. verified.
+* ``error`` / ``metadata`` (wave 2b) - ``Event.error_message`` (an ADK
+  ``LlmResponse`` field, verified against google-adk 2.9.0) is captured in
+  ``metadata["adk_error_events"]``, a list of ``{"error_code", "error_message"}``
+  in event order, for every event that carried either. It never goes into
+  ``output``. When the run produced no final text and some event carried an
+  ``error_message``, ``AgentResponse.error`` is set to the last such message
+  (verbatim) and ``metadata["adk_error_source"]`` = ``"event.error_message"``,
+  ``metadata["adk_error_provenance"]`` = ``"verified"``. A run with no text and
+  no ``error_message`` keeps the base-class normalisation ("provider returned
+  no output text"); a run that has text never gets ``error`` from an event.
 * ``non_text_parts`` - kinds of non-text parts in the final event (for
   example ``thought``); ``None`` when no final event arrived. inferred.
 * ``framework_version`` - installed ``google-adk`` version. verified.
@@ -195,7 +204,15 @@ class GoogleADKAdapter(AgentAdapter):
             if text:
                 final_text = text
         latency_ms = (time.perf_counter() - t0) * 1000
-        return AgentResponse(output=final_text, latency_ms=latency_ms, **acc.fields())
+        error: str | None = None
+        metadata: dict | None = None
+        if acc.error_events:
+            metadata = {"adk_error_events": acc.error_events}
+            if not final_text and acc.last_error_message is not None:
+                error = acc.last_error_message
+                metadata["adk_error_source"] = "event.error_message"
+                metadata["adk_error_provenance"] = "verified"
+        return AgentResponse(output=final_text, latency_ms=latency_ms, error=error, metadata=metadata, **acc.fields())
 
     @staticmethod
     def _text_from_content(content: object) -> str:
@@ -246,6 +263,8 @@ class _EventAccumulator:
         self._sums: dict[str, int | None] = {"prompt": None, "completion": None, "reasoning": None}
         self._final = None
         self._error_code: str | None = None
+        self.error_events: list[dict[str, str | None]] = []
+        self.last_error_message: str | None = None
 
     @staticmethod
     def _add(total: int | None, value: object) -> int | None:
@@ -255,8 +274,16 @@ class _EventAccumulator:
 
     def add(self, event: object) -> None:
         code = getattr(event, "error_code", None)
+        message = getattr(event, "error_message", None)
         if code:
             self._error_code = str(code)
+        if message:
+            self.last_error_message = str(message)
+        if code or message:
+            self.error_events.append({
+                "error_code": str(code) if code else None,
+                "error_message": str(message) if message else None,
+            })
         if getattr(event, "partial", False):
             return                      # streaming chunks: skip, so nothing is counted twice
         getter = getattr(event, "get_function_calls", None)
