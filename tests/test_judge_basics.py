@@ -73,8 +73,15 @@ def test_template_loads_hashes_and_renders_in_one_pass(tmp_path):
 @pytest.mark.parametrize("text", [
     "## USER\n{{prompt}} {{response}} {{category}}",
     "## SYSTEM\nx",
-    "## SYSTEM\nx\n## USER\n{{prompt}} {{response}}",
+    "## SYSTEM\nx\n## USER\n{{prompt}} {{category}}",
     "## SYSTEM\nx\n## SYSTEM\ny\n## USER\n{{prompt}} {{response}} {{category}}"])
 def test_template_errors(text):
     with pytest.raises(TemplateError):
         parse_template(text.encode())
+
+
+def test_category_placeholder_is_optional_and_is_never_rendered_when_absent():
+    t = parse_template(b"## SYSTEM\nx\n## USER\nP: {{prompt}}\nR: {{response}}")
+    system, user = t.render(prompt="pp", response="rr", category="ASI01")
+    assert user == "P: pp\nR: rr" and "ASI01" not in user
+    assert parse_template(b"## SYSTEM\nx\n## USER\n{{prompt}} {{response}} {{category}}").markers == ()

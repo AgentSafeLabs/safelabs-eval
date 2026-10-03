@@ -33,7 +33,7 @@ def in_audit_fraction(seed: int, ihash: str, fraction: float) -> bool:
 
 def _judge_dict(j: JudgeResult) -> dict:
     return {"label": j.label.value, "confidence": j.confidence, "backend_id": j.backend_id, "template_hash": j.template_hash,
-            "usage": j.usage, "latency_ms": j.latency_ms, "cached": j.cached, "parsed_ok": j.parsed_ok, "error": j.error}
+            "usage": j.usage, "latency_ms": j.latency_ms, "cached": j.cached, "parsed_ok": j.parsed_ok, "error": j.error, "meta": j.meta}
 
 
 class HybridScorer(Scorer):
