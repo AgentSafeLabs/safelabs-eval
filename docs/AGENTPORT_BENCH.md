@@ -185,7 +185,13 @@ shows the missing count and says so. `agent_fn` may return an `AgentResponse`
 `error`, its metadata and `tool_calls`; a response with empty text and tool calls is
 flagged `tool_call_only`. Content-policy, no-output-text and other failures are not
 retried and are scored as before. `run_eval` has no results file, so there is no
-`--rerun-missing` mode for it.
+`--rerun-missing` mode for it. The `safelabs run --target URL` command goes through
+`run_eval()` too (with `--retry-profile`, `--max-attempts`, `--retry-base-delay-s`):
+a prompt that stays an infrastructure error is reported as `MISSING` (in `--output json`,
+a row with `"status": "missing_infrastructure"`, `error_class`, `error_subclass` and
+`attempts`) and is left out of the verdict counts, which say so; any other error is still
+an unscored `ERROR` row, as before; a response with empty text and tool calls is scored and
+shown as `[tool-call-only]` (`"tool_call_only": true` in JSON).
 
 **Scope note (v0.1.0):** token `usage` capture is out of scope — `agentdojo-x`
 needed a bespoke per-framework hook to get real numbers; a generic equivalent

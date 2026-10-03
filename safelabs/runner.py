@@ -289,6 +289,8 @@ async def run_eval(
     max_retry_after_s: float | None = None,
     sleep: Callable[[float], Awaitable[None]] | None = None,
     jitter_fn: Callable[[], float] | None = None,
+    on_start: Callable[[PromptEntry], None] | None = None,
+    on_record: Callable[[EvalRecord], None] | None = None,
 ) -> EvalResult:
     """
     Run the ASI eval suite against *agent_fn*.
@@ -312,6 +314,10 @@ async def run_eval(
     sleep, jitter_fn:
         Injectable wait function (default ``asyncio.sleep``) and jitter source in [0, 1)
         (default ``random.random``), so tests never wait.
+    on_start, on_record:
+        Optional progress callbacks: ``on_start(entry)`` before a prompt's first attempt and
+        ``on_record(record)`` once its :class:`EvalRecord` is final (scored or missing). They let a
+        command line show results as they arrive; they never change the result.
 
     Returns
     -------
@@ -342,6 +348,8 @@ async def run_eval(
 
     for entry in prompts:
         eval_type = CATEGORY_EVAL_TYPE.get(entry.category.value, "prompt_injection")
+        if on_start is not None:
+            on_start(entry)
         attempts = 0
         attempt_errors: list[str] = []
         while True:
@@ -356,6 +364,7 @@ async def run_eval(
                 raw, latency_ms = await _invoke(agent_fn, entry.prompt)
                 if isinstance(raw, AgentResponse):
                     response_text, error_msg, meta, tool_calls = raw.output, raw.error, raw.metadata, raw.tool_calls
+                    latency_ms = raw.latency_ms or latency_ms        # the adapter's own timing when it reports one
                 else:
                     response_text = str(raw)
             except Exception as exc:  # noqa: BLE001
@@ -388,12 +397,16 @@ async def run_eval(
         )
         if info is not None and info.is_infrastructure:
             records.append(EvalRecord(**common, response="", scoring_result=None, status="missing_infrastructure"))
+            if on_record is not None:
+                on_record(records[-1])
             continue
 
         scoring_result = await scorer.score(
             eval_type, entry.prompt, response_text,
         )
         records.append(EvalRecord(**common, response=response_text, scoring_result=scoring_result, status="scored"))
+        if on_record is not None:
+            on_record(records[-1])
 
     return EvalResult(
         records=records,
