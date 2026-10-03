@@ -6,7 +6,7 @@
 
 [![CI](https://github.com/AgentSafeLabs/safelabs-eval/actions/workflows/ci.yml/badge.svg)](https://github.com/AgentSafeLabs/safelabs-eval/actions/workflows/ci.yml)
 [![Tests](https://img.shields.io/badge/tests-377%20passed-brightgreen?style=flat-square)](https://github.com/AgentSafeLabs/safelabs-eval/tree/main/tests)
-[![License](https://img.shields.io/badge/license-Apache%202.0-blue?style=flat-square)](LICENSE)
+[![License](https://img.shields.io/badge/license-Apache%202.0-blue?style=flat-square)](https://github.com/AgentSafeLabs/safelabs-eval/blob/main/LICENSE)
 [![Taxonomy: OWASP-inspired](https://img.shields.io/badge/taxonomy-OWASP--inspired-red?style=flat-square)](https://owasp.org/www-project-top-10-for-large-language-model-applications/)
 [![PyPI version](https://badge.fury.io/py/safelabs-eval.svg)](https://pypi.org/project/safelabs-eval/)
 [![PyPI - Python Version](https://img.shields.io/pypi/pyversions/safelabs-eval?style=flat-square)](https://pypi.org/project/safelabs-eval/)
@@ -213,7 +213,7 @@ prompt batch; the schema version advances only when `PromptEntry`'s shape
 changes. Because content versions are per batch, pin the repository commit SHA
 containing the evaluated `library.py` when citing a specific run. Full build history and the
 difficulty rubric live in the `library.py` module docstring; the dataset
-card is [`docs/DATASET_CARD.md`](docs/DATASET_CARD.md).
+card is [`docs/DATASET_CARD.md`](https://github.com/AgentSafeLabs/safelabs-eval/blob/main/docs/DATASET_CARD.md).
 
 **Dataset.** SafeAgent-300, a redacted evaluation dataset produced with this framework (safelabs-eval 0.10.1, prompt library 1.13.0): [10.5281/zenodo.23092031](https://doi.org/10.5281/zenodo.23092031) (all versions); v1.0.0: [10.5281/zenodo.23092032](https://doi.org/10.5281/zenodo.23092032). Raw model outputs are withheld; see the dataset's datasheet.
 
@@ -228,14 +228,14 @@ tool-use attacks (AgentDojo / Debenedetti et al. 2024), the
 "ignore all previous instructions" idiom (PromptInject / Perez &
 Ribeiro 2022), multi-turn escalation (Crescendo / Russinovich et al.
 2024), and probe categories from garak and PyRIT. Each cited source and
-its license is listed in [`CREDITS.md`](CREDITS.md); the audit summary is
+its license is listed in [`CREDITS.md`](https://github.com/AgentSafeLabs/safelabs-eval/blob/main/CREDITS.md); the audit summary is
 in the dataset card.
 
 The `provenance` metadata field and the audit are separate things. The 169
 prompts added after v1.6.0 are labeled `original` in the corpus metadata but
 have not undergone the same full external-source provenance audit; the
 per-batch overlap checks that were run on them instead are described in
-[`CREDITS.md`](CREDITS.md). That does not mean the newer prompts carry no
+[`CREDITS.md`](https://github.com/AgentSafeLabs/safelabs-eval/blob/main/CREDITS.md). That does not mean the newer prompts carry no
 sourcing information: at least one of them (`ASI01-018`, added in v1.7.0)
 has a source-lineage code comment citing garak's `dan` probe. It just hasn't
 had the same systematic review.
@@ -478,7 +478,7 @@ Prompt Injection in an Agentic System"](https://agentsafelabs.com/blog/why-claud
 
 ## License
 
-Apache 2.0 — see [LICENSE](LICENSE).
+Apache 2.0 — see [LICENSE](https://github.com/AgentSafeLabs/safelabs-eval/blob/main/LICENSE).
 
 ---
 
