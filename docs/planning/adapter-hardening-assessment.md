@@ -67,7 +67,7 @@ Evidence that the tests are duck-typed by design (commit messages: UNKNOWN, no g
 - What is not in it (VERIFIED by reading the file): tool calls, token usage, stop/finish reason, thinking or other non-text parts, framework name and version, any marker of "not exposed".
 - `None` versus `[]` for tool calls: no adapter distinguishes them, because no tool-call field exists (VERIFIED). The only adapter that fills `raw` and `metadata` is `HttpAdapter` (`raw` = decoded JSON dict, `metadata` = `{"status_code": ...}`); the other seven return only `output` and `latency_ms` (VERIFIED).
 - Consumers: `agentport_bench/harness.py::run_trial` uses `response.output`, `response.latency_ms` and `response.error`, and writes `usage=None` (line 247, VERIFIED). `BenchTrialResult` (`agentport_bench/schema.py`) has a `usage` dict field but no tool-call or stop-reason field (VERIFIED).
-- Reference for what a richer record looked like in the research code: agentdojo-x's `model_clients.Completion` has `text`, `usage`, `stop_reason` and `non_text_parts` (VERIFIED by reading; read-only). That is the shape the SafeAgent-300 data gaps (`stop_reason` missing in some files) came from; the safelabs-eval adapters do not carry it.
+- Reference for what a richer record looked like in the research code: the private research harness's `model_clients.Completion` has `text`, `usage`, `stop_reason` and `non_text_parts` (VERIFIED by reading; read-only). That is the shape the SafeAgent-300 data gaps (`stop_reason` missing in some files) came from; the safelabs-eval adapters do not carry it.
 
 ## 3. Google ADK audit and classification
 
@@ -105,7 +105,7 @@ OpenAI Agents environment finding (VERIFIED): the repo pins `openai<2.45` for th
 Inside this repo (VERIFIED by reading):
 - `AutoGenAdapter`: `import autogen` namespace of the **ag2** distribution (`pyproject.toml` extra `autogen = ["ag2>=0.2"]`); calls `recipient.a_initiate_chat(agent, message=prompt, max_turns=1)`; reads `ChatResult.chat_history[-1]["content"]`, then `.summary`. The docstring states it does not target the Microsoft `autogen_agentchat` namespace.
 - `SemanticKernelAdapter`: extra `semantic-kernel>=1.26`; calls `agent.get_response(messages=prompt)`; reads `result.message.content`, then `result.content`, then `str(result)`. No framework class is imported (pure duck typing).
-- `agentdojo-x/agentdojo_x/agent_factories.py` builds both agents for the benchmark (`build_autogen_agent`, `build_semantic_kernel_agent`); it also depends on these two APIs (read-only observation).
+- The private research harness builds both agents for the benchmark (`build_autogen_agent`, `build_semantic_kernel_agent`); it also depends on these two APIs (read-only observation).
 
 Upstream status: UNKNOWN beyond installed metadata. The installed semantic-kernel 1.44.1 README text says "Semantic Kernel is now Microsoft Agent Framework ... Microsoft Agent Framework (MAF) is the enterprise-ready successor to Semantic Kernel ... now available at version 1.0" (VERIFIED, `importlib.metadata`). The installed ag2 0.14.0 README text says "The current framework will be tidied up through deprecations over the next few minor versions and moved to maintenance mode" (VERIFIED). Neither `agent-framework` nor `microsoft-agent-framework` is installed (VERIFIED), so no MAF API could be checked.
 
@@ -124,7 +124,7 @@ Extend, do not rebuild: add optional fields to the existing result type (or a su
 | `tool_calls` | `list[ToolCall] | None`; `None` = not exposed by this adapter or framework path, `[]` = exposed and zero calls; `ToolCall(name, arguments, id)` | INFERRED (design); availability: LangChain `AIMessage.tool_calls`, ADK `get_function_calls()`, LlamaIndex `AgentOutput.tool_calls` VERIFIED as present; OpenAI Agents `new_items`, SK `FunctionCallContent` INFERRED; CrewAI, AutoGen UNKNOWN; HTTP `None` |
 | `usage` | `{prompt_tokens, completion_tokens, reasoning_tokens} | None` | INFERRED; sources: LangChain `usage_metadata`, ADK `usage_metadata`, CrewAI `token_usage` VERIFIED as fields; others UNKNOWN |
 | `stop_reason` | normalized finish reason | INFERRED; ADK `finish_reason` VERIFIED; LangChain `response_metadata` field VERIFIED but its keys vary by provider (UNKNOWN) |
-| `non_text_parts` | list of part kinds seen (for example `function_call`, `thought`) | INFERRED (mirrors agentdojo-x `Completion.non_text_parts`) |
+| `non_text_parts` | list of part kinds seen (for example `function_call`, `thought`) | INFERRED (mirrors the private research harness `Completion.non_text_parts`) |
 | `raw`, `metadata` | as today | VERIFIED (exist) |
 | `framework`, `framework_version` | adapter name and `importlib.metadata.version(...)` of the framework | INFERRED (design) |
 | `schema_version` | integer for the result shape | INFERRED (design) |
