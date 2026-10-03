@@ -58,7 +58,7 @@ from collections import Counter
 from collections.abc import AsyncIterator, Awaitable, Callable
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
@@ -81,7 +81,8 @@ from safelabs.agents import (
     OpenAIAgentsAdapter,
     SemanticKernelAdapter,
 )
-from safelabs.agents.errors import ErrorInfo, classify_error
+from safelabs.agents.errors import classify_error
+from safelabs.agents.retry import RETRY_PROFILES, resolve_retry_settings, retry_delay  # noqa: F401  (re-exported)
 from safelabs.prompts import get_library
 from safelabs.prompts.schemas import PromptCategory, PromptEntry
 from safelabs.runner import CATEGORY_EVAL_TYPE
@@ -157,6 +158,27 @@ def build_adapter(adapter_name: str, **kwargs: Any) -> AgentAdapter:
 
 # ── run manifest ──────────────────────────────────────────────────────────
 
+class HistoryCell(BaseModel):
+    rows_attempted: int = 0
+    recovered: int = 0
+    still_missing: int = 0
+
+
+class RerunHistoryEntry(BaseModel):
+    """One line of a manifest's ``rerun_history``: a run or a --rerun-missing pass. Entries are only ever appended."""
+
+    kind: Literal["initial", "run", "rerun"] = Field(
+        description="initial = the first full run (no manifest existed); run = a later non-rerun invocation; rerun = a --rerun-missing pass.",
+    )
+    timestamp: str = Field(description="UTC ISO-8601 time the entry was recorded.")
+    retry_profile: str
+    retry_settings: dict[str, float | int] = Field(description="Effective values: max_attempts, base_delay_s, max_delay_s, max_retry_after_s.")
+    rows_attempted: int = Field(description="Rows executed in this run, or re-attempted in this rerun pass.")
+    recovered: int = Field(default=0, description="Rerun pass only: re-attempted rows that are now scored.")
+    still_missing: int = Field(description="Of the rows attempted in this entry, how many are missing_infrastructure afterwards.")
+    by_cell: dict[str, HistoryCell] = Field(default_factory=dict, description="'framework|model' -> counts")
+
+
 class RunManifest(BaseModel):
     """Sidecar metadata for one submission run, written alongside the
     .jsonl output by write_manifest(). New relative to agentdojo-x, which
@@ -181,6 +203,9 @@ class RunManifest(BaseModel):
     missing_trials_excluded: str | None = None
     rerun_passes: int | None = None
     retry_profile: str | None = None
+    rerun_history: list[RerunHistoryEntry] | None = Field(
+        default=None, description="Append-only list: the initial run, then one entry per run or --rerun-missing pass. Absent in older manifests.",
+    )
 
 
 def write_manifest(output_path: Path, manifest: RunManifest) -> Path:
@@ -221,31 +246,8 @@ def existing_trial_keys(output_path: Path) -> set[tuple[str, str, str, int]]:
 
 # ── retry profiles ───────────────────────────────────────────────────────
 
-#: Named retry settings for run_trial()/run_matrix()/rerun_missing(). "default" is what the harness did
-#: before profiles existed; "benchmark" waits longer and tries more often for a full benchmark run.
-RETRY_PROFILES: dict[str, dict[str, float | int]] = {
-    "default":   {"max_attempts": 3, "base_delay_s": 1.0, "max_delay_s": 60.0,  "max_retry_after_s": 300.0},
-    "benchmark": {"max_attempts": 6, "base_delay_s": 2.0, "max_delay_s": 120.0, "max_retry_after_s": 600.0},
-}
-
-
-def resolve_retry_settings(
-    profile: str = "default",
-    *,
-    max_attempts: int | None = None,
-    base_delay_s: float | None = None,
-    max_delay_s: float | None = None,
-    max_retry_after_s: float | None = None,
-) -> dict[str, float | int]:
-    """The profile's settings, with every explicitly given (non-None) value overriding it."""
-    if profile not in RETRY_PROFILES:
-        raise ValueError(f"unknown retry profile {profile!r}; expected one of {sorted(RETRY_PROFILES)}")
-    settings = dict(RETRY_PROFILES[profile])
-    for key, value in (("max_attempts", max_attempts), ("base_delay_s", base_delay_s),
-                       ("max_delay_s", max_delay_s), ("max_retry_after_s", max_retry_after_s)):
-        if value is not None:
-            settings[key] = value
-    return settings
+# RETRY_PROFILES and resolve_retry_settings() live in safelabs/agents/retry.py (shared with safelabs/runner.py);
+# they are re-exported here, so `from agentport_bench.harness import RETRY_PROFILES` keeps working.
 
 
 # ── run summary ──────────────────────────────────────────────────────────
@@ -305,16 +307,7 @@ def format_summary_lines(summary: RunSummary) -> list[str]:
 
 # ── trial execution ──────────────────────────────────────────────────────
 
-def _retry_delay(
-    attempt: int, info: ErrorInfo, *, base_delay_s: float, max_delay_s: float,
-    max_retry_after_s: float, jitter_fn: Callable[[], float],
-) -> float:
-    """Seconds to wait after failed attempt number ``attempt`` (1-based): Retry-After when the provider sent
-    one (capped at ``max_retry_after_s``), else exponential backoff with jitter in [0.5, 1.0] of the step."""
-    if info.retry_after_s is not None:
-        return min(max(0.0, info.retry_after_s), max_retry_after_s)
-    step = min(max_delay_s, base_delay_s * (2 ** (attempt - 1)))
-    return step * (0.5 + 0.5 * jitter_fn())
+_retry_delay = retry_delay        # the shared implementation, under its old private name
 
 
 async def run_trial(
@@ -544,6 +537,35 @@ def format_rerun_lines(summary: RerunSummary) -> list[str]:
         )
     lines.append("Scored rows were not re-executed; the file was " + ("rewritten in place." if summary.rewrote_file else "left untouched."))
     return lines
+
+
+def history_entry_initial(
+    rows: list[BenchTrialResult], *, retry_profile: str, retry_settings: dict[str, float | int], kind: str = "initial",
+) -> RerunHistoryEntry:
+    """History entry for a run: its own row counts, by framework x model."""
+    cells: dict[str, HistoryCell] = {}
+    for r in rows:
+        c = cells.setdefault(f"{r.framework}|{r.model}", HistoryCell())
+        c.rows_attempted += 1
+        c.still_missing += 1 if r.is_missing else 0
+    return RerunHistoryEntry(
+        kind=kind, timestamp=datetime.now(timezone.utc).isoformat(), retry_profile=retry_profile,
+        retry_settings=dict(retry_settings), rows_attempted=len(rows),
+        still_missing=sum(c.still_missing for c in cells.values()), by_cell=dict(sorted(cells.items())),
+    )
+
+
+def history_entry_from_rerun(
+    summary: RerunSummary, *, retry_profile: str, retry_settings: dict[str, float | int],
+) -> RerunHistoryEntry:
+    """History entry for one --rerun-missing pass, from its RerunSummary."""
+    return RerunHistoryEntry(
+        kind="rerun", timestamp=datetime.now(timezone.utc).isoformat(), retry_profile=retry_profile,
+        retry_settings=dict(retry_settings), rows_attempted=summary.reattempted, recovered=summary.recovered,
+        still_missing=summary.still_missing,
+        by_cell={k: HistoryCell(rows_attempted=c.reattempted, recovered=c.recovered, still_missing=c.still_missing)
+                 for k, c in sorted(summary.by_cell.items())},
+    )
 
 
 def _replace_file_atomically(path: Path, text: str) -> None:

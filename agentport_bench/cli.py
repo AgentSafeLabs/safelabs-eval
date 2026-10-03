@@ -40,6 +40,8 @@ from agentport_bench.harness import (
     build_adapter,
     format_rerun_lines,
     format_summary_lines,
+    history_entry_from_rerun,
+    history_entry_initial,
     rerun_missing,
     resolve_retry_settings,
     run_matrix,
@@ -213,6 +215,17 @@ async def _run_async(
         return
 
     summary = summarize_rows(results)
+    manifest_file = output.with_suffix(".manifest.json")
+    prior_history: list = []
+    if manifest_file.exists():
+        try:
+            prior_history = list(RunManifest.model_validate_json(manifest_file.read_text(encoding="utf-8")).rerun_history or [])
+        except (ValueError, OSError):
+            prior_history = []                      # an unreadable old manifest is replaced, as before
+    history = prior_history + [history_entry_initial(
+        results, retry_profile=retry_profile, retry_settings=retry,
+        kind="run" if manifest_file.exists() else "initial",
+    )]
     manifest = RunManifest(
         harness_version=__version__,
         library_version=get_library().version,
@@ -230,6 +243,7 @@ async def _run_async(
         max_attempts=max_attempts,
         missing_trials_excluded=MISSING_EXCLUDED_NOTE,
         retry_profile=retry_profile,
+        rerun_history=history,
     )
     manifest_path = write_manifest(output, manifest)
 
@@ -261,7 +275,19 @@ async def _rerun_missing_pass(adapter, adapter_name, model, output, run_categori
     click.echo("─" * 60)
     for line in format_rerun_lines(summary):
         click.echo(line)
+    entry = history_entry_from_rerun(summary, retry_profile=retry_profile, retry_settings=retry)
+    path = output.with_suffix(".manifest.json")
     if not summary.rewrote_file:
+        if path.exists():
+            try:
+                m = RunManifest.model_validate_json(path.read_text(encoding="utf-8"))
+                m.rerun_history = list(m.rerun_history or []) + [entry]      # a pass that re-attempted nothing is still recorded
+                write_manifest(output, m)
+                click.echo(f"Recorded the pass in the manifest history: {path}")
+                return
+            except (ValueError, OSError) as exc:
+                click.echo(f"{_YELLOW}Manifest not updated: {exc}{_RESET}")
+                return
         click.echo("No manifest change.")
         return
     try:
@@ -270,7 +296,6 @@ async def _rerun_missing_pass(adapter, adapter_name, model, output, run_categori
         click.echo(f"{_YELLOW}Results rewritten, but the manifest was not refreshed: {exc}{_RESET}")
         return
     after = summarize_rows(rows)
-    path = output.with_suffix(".manifest.json")
     if path.exists():
         m = RunManifest.model_validate_json(path.read_text(encoding="utf-8"))
         m.finished_at = datetime.now(timezone.utc).isoformat()
@@ -288,6 +313,7 @@ async def _rerun_missing_pass(adapter, adapter_name, model, output, run_categori
     m.rerun_passes = max((r.rerun_passes for r in rows), default=0)
     m.missing_trials_excluded = MISSING_EXCLUDED_NOTE
     m.retry_profile = retry_profile
+    m.rerun_history = list(m.rerun_history or []) + [entry]          # appended; earlier entries are never rewritten
     write_manifest(output, m)
     click.echo(f"After the pass: {after.scored} scored, {after.missing_infrastructure} missing_infrastructure. Manifest: {path}")
 
