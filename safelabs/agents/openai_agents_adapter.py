@@ -52,6 +52,26 @@ construction at the very start of the run. Confirmed via full traceback
 during real-adapter verification (see ``examples/openai_agents_adapter_verify.py``) —
 zero API cost was incurred since the failure precedes any network call.
 
+Optional AgentResponse fields (audited against openai-agents 0.18.0 with
+openai 2.44.0, driving the real ``Runner`` with a stub ``Model``):
+
+* ``tool_calls`` - every ``RunResult.new_items`` entry whose ``type`` is
+  ``tool_call_item`` (``raw_item.name``, ``raw_item.arguments`` JSON text,
+  ``raw_item.call_id``); ``ToolCall.result`` comes from the
+  ``tool_call_output_item`` with the same ``call_id`` (``.output``; in memory
+  only). A hosted-tool call that has no ``name`` is recorded under its
+  ``raw_item.type``. ``[]`` when ``new_items`` is a list with no tool calls;
+  ``None`` when the result has no ``new_items`` list. Agent *handoffs*
+  (``handoff_call_item``) are not counted as tool calls. provenance: verified.
+* ``usage`` - ``RunResult.context_wrapper.usage`` (``input_tokens``,
+  ``output_tokens``, ``output_tokens_details.reasoning_tokens``), totalled by
+  the SDK across every model request of the run. An all-zero usage is read as
+  "the provider reported none" and left ``None`` (a completed call always uses
+  tokens; the SDK defaults missing usage to zero). verified.
+* ``stop_reason`` - not exposed by the SDK (``ModelResponse`` carries only
+  ``output``, ``usage``, ``response_id``, ``request_id``): stays ``None``.
+* ``framework_version`` - installed ``openai-agents`` version. verified.
+
 Pinned around via ``openai<2.45`` in the ``openai-agents`` extra in
 ``pyproject.toml``. ``openai-agents==0.18.1`` (released after 0.18.0,
 the version this adapter was originally verified against) already
@@ -68,9 +88,10 @@ in this project's lock/extras floor moves past ``0.18.0``.
 from __future__ import annotations
 
 import time
+from importlib import metadata as _metadata
 
 from safelabs.agents.base import AgentAdapter
-from safelabs.agents.schemas import AgentResponse
+from safelabs.agents.schemas import AgentResponse, ToolCall, normalize_usage
 
 
 class OpenAIAgentsAdapter(AgentAdapter):
@@ -128,7 +149,62 @@ class OpenAIAgentsAdapter(AgentAdapter):
         t0 = time.perf_counter()
         result = await runner.run(self._agent, prompt)
         latency_ms = (time.perf_counter() - t0) * 1000
-        return AgentResponse(output=self._extract_output(result), latency_ms=latency_ms)
+        return AgentResponse(
+            output=self._extract_output(result),
+            latency_ms=latency_ms,
+            **self._optional_fields(result),
+        )
+
+    @staticmethod
+    def _optional_fields(result: object) -> dict:
+        """Fill the optional AgentResponse fields from a ``RunResult`` (see module docstring)."""
+        fields: dict = {}
+        prov: dict = {}
+
+        try:
+            fields["framework_version"] = _metadata.version("openai-agents")
+            prov["framework_version"] = "verified"
+        except _metadata.PackageNotFoundError:
+            pass
+
+        items = getattr(result, "new_items", None)
+        if isinstance(items, list):
+            calls: list[ToolCall] = []
+            outputs: dict[str, str] = {}
+            for item in items:
+                kind = getattr(item, "type", None)
+                raw = getattr(item, "raw_item", None)
+                if kind == "tool_call_item":
+                    name = _get(raw, "name") or _get(raw, "type")
+                    if isinstance(name, str):
+                        args = _get(raw, "arguments")
+                        cid = _get(raw, "call_id") or _get(raw, "id")
+                        calls.append(ToolCall.from_arguments(
+                            name, args if isinstance(args, (dict, str)) else None,
+                            call_id=cid if isinstance(cid, str) else None,
+                        ))
+                elif kind == "tool_call_output_item":
+                    cid = _get(raw, "call_id")
+                    out = getattr(item, "output", None)
+                    if isinstance(cid, str) and out is not None:
+                        outputs[cid] = str(out)
+            for call in calls:
+                if call.call_id is not None and call.call_id in outputs:
+                    call.result = outputs[call.call_id]
+            fields["tool_calls"] = calls
+            prov["tool_calls"] = "verified"
+
+        usage = getattr(getattr(result, "context_wrapper", None), "usage", None)
+        if usage is not None:
+            inp = getattr(usage, "input_tokens", None)
+            out = getattr(usage, "output_tokens", None)
+            if isinstance(inp, int) and isinstance(out, int) and (inp or out):
+                reasoning = getattr(getattr(usage, "output_tokens_details", None), "reasoning_tokens", None)
+                fields["usage"] = normalize_usage(inp, out, reasoning)
+                prov["usage"] = "verified"
+
+        fields["provenance"] = prov
+        return fields
 
     def _extract_output(self, result: object) -> str:
         # 1. RunResult.final_output — the sole output attribute in openai-agents >= 0.1.
@@ -148,3 +224,10 @@ class OpenAIAgentsAdapter(AgentAdapter):
             return result
 
         return str(result)
+
+
+def _get(obj: object, key: str) -> object:
+    """Read ``key`` from a dict or an attribute-style object (raw items are either)."""
+    if isinstance(obj, dict):
+        return obj.get(key)
+    return getattr(obj, key, None)

@@ -41,8 +41,8 @@ Known Limitations section of the README and open issues tagged
 ## What we're looking for
 
 - **New framework adapters** (LangChain, CrewAI, AutoGen, LlamaIndex,
-  OpenAI Agents SDK, and beyond) — the most valuable and welcome kind of
-  contribution. Each adapter should include fast duck-typed unit tests and
+  OpenAI Agents SDK, and beyond) — considered under the adapter policy
+  below. Each adapter should include fast duck-typed unit tests and
   a real-framework test: real framework objects driven by the framework's
   own fake or mock model (no network, no paid API), guarded with
   `pytest.importorskip` so it skips when the framework is not installed.
@@ -90,7 +90,7 @@ An adapter is done when:
    (computed or parsed by the adapter) or `unknown` (the field is `None`);
 4. `ToolCall.result` stays in memory only: it is never written to a result
    file or serialized by default;
-5. it will pass the shared `AgentResponse` conformance tests once they are added (next adapter wave), has a duck-typed
+5. it passes the shared `AgentResponse` conformance tests (`tests/test_adapter_conformance.py`), has a duck-typed
    unit test (fast, no framework) and a real-framework test with a
    deterministic fake model and no network or paid API;
 6. the framework version it was audited against is recorded in its
@@ -100,6 +100,27 @@ An adapter is done when:
 8. its docstring lists the framework API calls it depends on;
 9. a manual `examples/<name>_adapter_verify.py` run is recorded, with its
    output stored without raw model text.
+
+## Adapter policy
+
+safelabs-eval maintains first-party adapters for HTTP, LangChain, CrewAI,
+AutoGen (ag2), LlamaIndex, the OpenAI Agents SDK, Google ADK and Semantic
+Kernel. A new first-party adapter is accepted only for one of these reasons:
+
+- **user demand**: several users ask for that framework;
+- **a maintainer request**: a maintainer asks for it;
+- **a needed security primitive**: the evaluation needs something the existing
+  adapters cannot observe (for example a framework's tool-call or guardrail
+  surface);
+- **materially new capability**: the framework lets us test something none of
+  the current adapters can.
+
+An accepted adapter must meet the Definition of Done above, including the
+real-framework test with a deterministic fake model (no network, no paid API)
+and the shared conformance tests. Adapters not accepted as first-party do not
+need to be: any framework can be evaluated today through the custom adapter
+route, `agentport-bench run --adapter custom --module package.module:ClassName ...`,
+where the class subclasses `AgentAdapter`.
 
 ## Data integrity requirements
 
