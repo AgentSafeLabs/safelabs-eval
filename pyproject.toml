@@ -64,8 +64,11 @@ packages = ["safelabs", "agentport_bench"]
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
-markers = ["e2e_pip_cycle: real pip install/uninstall, mutates .venv, opt-in only"]
-addopts = "-m 'not e2e_pip_cycle'"
+markers = [
+    "e2e_pip_cycle: real pip install/uninstall, mutates .venv, opt-in only",
+    "live_model: calls a real model with a real API key (costs money), opt-in only: pytest -m live_model",
+]
+addopts = "-m 'not e2e_pip_cycle and not live_model'"
 
 [tool.ruff]
 line-length = 100

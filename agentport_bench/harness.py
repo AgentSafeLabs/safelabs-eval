@@ -244,7 +244,7 @@ async def run_trial(
         latency_ms=response.latency_ms,
         error=response.error,
         indicators=scoring_result.indicators,
-        usage=None,
+        usage=response.usage,
         payload_hash=payload_hash,
         timestamp=datetime.now(timezone.utc).isoformat(),
         harness_version=HARNESS_VERSION,

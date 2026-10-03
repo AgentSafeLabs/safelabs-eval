@@ -8,7 +8,7 @@ from safelabs.agents.http_adapter import HttpAdapter
 from safelabs.agents.langchain_adapter import LangChainAdapter
 from safelabs.agents.llamaindex_adapter import LlamaIndexAdapter
 from safelabs.agents.openai_agents_adapter import OpenAIAgentsAdapter
-from safelabs.agents.schemas import AgentResponse
+from safelabs.agents.schemas import AgentResponse, ToolCall
 from safelabs.agents.semantic_kernel_adapter import SemanticKernelAdapter
 
 __all__ = [
@@ -22,4 +22,5 @@ __all__ = [
     "LlamaIndexAdapter",
     "OpenAIAgentsAdapter",
     "SemanticKernelAdapter",
+    "ToolCall",
 ]

@@ -14,9 +14,68 @@ import time
 import httpx
 
 from safelabs.agents.base import AgentAdapter
-from safelabs.agents.schemas import AgentResponse
+from safelabs.agents.schemas import AgentResponse, ToolCall, normalize_usage
 
 _RESPONSE_KEYS = ("response", "output", "message", "text", "content", "result")
+
+
+def _openai_compatible_fields(data: dict) -> dict:
+    """
+    Fill the optional AgentResponse fields from an OpenAI-compatible JSON body.
+
+    An HTTP endpoint has no framework contract, so every value here is
+    ``inferred`` from the OpenAI chat-completions key convention, and a field
+    is filled only when its keys are present:
+
+    * ``tool_calls``: ``choices[0].message`` exists -> the parsed
+      ``message.tool_calls`` list (``[]`` when the message has none). No
+      ``choices[0].message`` -> ``None`` (not exposed).
+    * ``stop_reason``: ``choices[0].finish_reason``, else a top-level
+      ``finish_reason`` / ``stop_reason`` string.
+    * ``usage``: ``usage.prompt_tokens`` / ``completion_tokens`` (or
+      ``input_tokens`` / ``output_tokens``) and the reasoning-token detail.
+    """
+    fields: dict = {}
+    prov: dict = {}
+
+    choices = data.get("choices")
+    first = choices[0] if isinstance(choices, list) and choices and isinstance(choices[0], dict) else None
+    message = first.get("message") if first is not None else None
+    if isinstance(message, dict):
+        raw_calls = message.get("tool_calls")
+        if raw_calls is None or isinstance(raw_calls, list):
+            calls: list[ToolCall] = []
+            for tc in raw_calls or []:
+                fn = tc.get("function") if isinstance(tc, dict) else None
+                if isinstance(fn, dict) and isinstance(fn.get("name"), str):
+                    call_id = tc.get("id") if isinstance(tc.get("id"), str) else None
+                    calls.append(ToolCall.from_arguments(fn["name"], fn.get("arguments"), call_id=call_id))
+            fields["tool_calls"] = calls
+            prov["tool_calls"] = "inferred"
+
+    stop = first.get("finish_reason") if first is not None else None
+    if not isinstance(stop, str) or not stop:
+        stop = next((data[k] for k in ("finish_reason", "stop_reason") if isinstance(data.get(k), str) and data[k]), None)
+    if isinstance(stop, str) and stop:
+        fields["stop_reason"] = stop
+        prov["stop_reason"] = "inferred"
+
+    u = data.get("usage")
+    if isinstance(u, dict):
+        details = u.get("completion_tokens_details") or u.get("output_tokens_details")
+        reasoning = details.get("reasoning_tokens") if isinstance(details, dict) else None
+        usage = normalize_usage(
+            u.get("prompt_tokens", u.get("input_tokens")),
+            u.get("completion_tokens", u.get("output_tokens")),
+            reasoning,
+        )
+        if usage is not None:
+            fields["usage"] = usage
+            prov["usage"] = "inferred"
+
+    if prov:
+        fields["provenance"] = prov
+    return fields
 
 
 class HttpAdapter(AgentAdapter):
@@ -100,11 +159,13 @@ class HttpAdapter(AgentAdapter):
             )
 
         output = self._extract_output(data)
+        extra = _openai_compatible_fields(data) if isinstance(data, dict) else {}
         return AgentResponse(
             output=output,
             latency_ms=latency_ms,
             raw=data if isinstance(data, dict) else None,
             metadata={"status_code": http_response.status_code},
+            **extra,
         )
 
     def _extract_output(self, data: dict | str) -> str:

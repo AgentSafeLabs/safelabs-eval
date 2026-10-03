@@ -42,11 +42,16 @@ Known Limitations section of the README and open issues tagged
 
 - **New framework adapters** (LangChain, CrewAI, AutoGen, LlamaIndex,
   OpenAI Agents SDK, and beyond) — the most valuable and welcome kind of
-  contribution. Each adapter should include integration tests that run
-  against a real, live model response, not only synthetic fixtures. Bugs
-  in this project's own detector logic have historically only surfaced
-  under real model output — synthetic-only test coverage would have
-  missed them.
+  contribution. Each adapter should include fast duck-typed unit tests and
+  a real-framework test: real framework objects driven by the framework's
+  own fake or mock model (no network, no paid API), guarded with
+  `pytest.importorskip` so it skips when the framework is not installed.
+  Live-model tests are optional and opt-in: mark them `@pytest.mark.live_model`
+  (registered in `pyproject.toml`); they are excluded from the default run
+  and run only with `pytest -m live_model`. Bugs in this project's own
+  detector logic have historically only surfaced under real model output,
+  so also record a manual `examples/<name>_adapter_verify.py` run
+  (counts and versions, never raw model text) when you can.
 - **Detector vocabulary and pattern improvements** — refusal phrasing,
   edge cases, encoding issues. If you find a response that should have
   scored PASS/FAIL but scored UNCERTAIN (or vice versa), please include
@@ -70,6 +75,31 @@ Known Limitations section of the README and open issues tagged
   adding new coverage), include before/after counts on a fixed prompt
   set in your PR description, the same way release notes for detector
   fixes do in this repo's CHANGELOG.
+
+## Adapter Definition of Done
+
+An adapter is done when:
+
+1. it returns the normalized `AgentResponse`, with every optional field
+   (`tool_calls`, `usage`, `stop_reason`, `error_code`, `non_text_parts`,
+   `framework_version`) either filled or `None`;
+2. `None` versus `[]` follows the rule *None = the adapter or framework path
+   does not expose it; [] = exposed, and there were zero*, and is tested;
+3. each filled field carries a `provenance` entry: `verified` (read from a
+   typed attribute or method of the framework's result object), `inferred`
+   (computed or parsed by the adapter) or `unknown` (the field is `None`);
+4. `ToolCall.result` stays in memory only: it is never written to a result
+   file or serialized by default;
+5. it will pass the shared `AgentResponse` conformance tests once they are added (next adapter wave), has a duck-typed
+   unit test (fast, no framework) and a real-framework test with a
+   deterministic fake model and no network or paid API;
+6. the framework version it was audited against is recorded in its
+   docstring, and the `pyproject.toml` bounds match the audited range;
+7. timeouts, exceptions and empty output keep the `AgentAdapter.execute()`
+   behavior;
+8. its docstring lists the framework API calls it depends on;
+9. a manual `examples/<name>_adapter_verify.py` run is recorded, with its
+   output stored without raw model text.
 
 ## Data integrity requirements
 
