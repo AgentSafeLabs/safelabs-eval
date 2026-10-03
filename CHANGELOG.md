@@ -2,6 +2,17 @@
 
 All notable changes to safelabs-eval are recorded here. The format follows Keep a Changelog (https://keepachangelog.com/en/1.1.0/), and the project uses semantic versioning. Earlier versions are described on GitHub Releases: https://github.com/AgentSafeLabs/safelabs-eval/releases
 
+## 0.11.2 - 2026-10-03
+
+Packaging and README fixes only; no code behaviour changes.
+
+### Fixed
+
+- The README logo now uses an absolute URL, so the image renders on the PyPI project page.
+- The README no longer shows a hard-coded test-count badge (it was out of date); the CI status badge remains.
+- The package summary (PyPI description, README tagline, `CITATION.cff` abstract and package docstring) now says "built around an OWASP-inspired agent-security taxonomy". The README's taxonomy note still explains the ASI01-ASI10 labels.
+- The source distribution is smaller: it no longer includes the PNG files in `docs/assets/`, the `docs/planning/` folder or `.env.example`.
+
 ## 0.11.0 - 2026-10-03
 
 ### Behaviour changes

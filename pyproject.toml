@@ -4,8 +4,8 @@ build-backend = "hatchling.build"
 
 [project]
 name = "safelabs-eval"
-version = "0.11.0"
-description = "Open-source red-teaming and evaluation framework for AI agents, built around an OWASP-inspired ASI01-ASI10 taxonomy"
+version = "0.11.2"
+description = "Open-source red-teaming and evaluation framework for AI agents, built around an OWASP-inspired agent-security taxonomy"
 readme = "README.md"
 license = { text = "Apache-2.0" }
 authors = [
@@ -60,6 +60,9 @@ Documentation = "https://github.com/AgentSafeLabs/safelabs-eval#readme"
 
 [tool.hatch.build.targets.wheel]
 packages = ["safelabs", "agentport_bench"]
+
+[tool.hatch.build.targets.sdist]
+exclude = ["docs/assets/*.png", "docs/planning/", ".env.example"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

@@ -1,11 +1,10 @@
 <p align="center">
-  <img src="docs/assets/logo-full.png" alt="safelabs-eval" width="400">
+  <img src="https://raw.githubusercontent.com/AgentSafeLabs/safelabs-eval/main/docs/assets/logo-full.png" alt="safelabs-eval" width="400">
 </p>
 
 <div align="center">
 
 [![CI](https://github.com/AgentSafeLabs/safelabs-eval/actions/workflows/ci.yml/badge.svg)](https://github.com/AgentSafeLabs/safelabs-eval/actions/workflows/ci.yml)
-[![Tests](https://img.shields.io/badge/tests-377%20passed-brightgreen?style=flat-square)](https://github.com/AgentSafeLabs/safelabs-eval/tree/main/tests)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue?style=flat-square)](https://github.com/AgentSafeLabs/safelabs-eval/blob/main/LICENSE)
 [![Taxonomy: OWASP-inspired](https://img.shields.io/badge/taxonomy-OWASP--inspired-red?style=flat-square)](https://owasp.org/www-project-top-10-for-large-language-model-applications/)
 [![PyPI version](https://badge.fury.io/py/safelabs-eval.svg)](https://pypi.org/project/safelabs-eval/)
@@ -16,7 +15,7 @@
 
 # safelabs-eval
 
-**Open-source red-teaming and evaluation framework for AI agents — built around an OWASP-inspired agent-security taxonomy (ASI01–ASI10).**
+**Open-source red-teaming and evaluation framework for AI agents — built around an OWASP-inspired agent-security taxonomy.**
 
 ---
 
