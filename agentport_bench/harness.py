@@ -27,6 +27,16 @@ threaded all the way from the caller. Any file produced with it set
 should be treated as sensitive, not submitted to the public results repo
 as-is -- see schema.BenchTrialResultWithRawOutput's docstring.
 
+Failure handling (harness reliability): a trial whose adapter call fails with an
+infrastructure error (rate limit, timeout, connection error, provider outage;
+see safelabs.agents.errors) is retried with exponential backoff and jitter
+(max_attempts, default 3; Retry-After is honoured) and, if it still fails, is
+recorded with status="missing_infrastructure" and no verdict or weight, so it
+is excluded from every aggregate instead of being scored UNCERTAIN.
+Content-policy, no-output-text and other failures are model behaviour: they
+are not retried and keep their scoring. A response with empty text and tool
+calls is flagged tool_call_only (still scored as before).
+
 Scope note (v0.1.0): token usage capture is out of scope. agentdojo-x
 needed a bespoke usage-capturing hook per framework (agent_factories.py,
 per its orchestrator.py docstring) to get real numbers; replicating that
@@ -39,12 +49,14 @@ from __future__ import annotations
 import asyncio
 import importlib
 import json
-from collections.abc import AsyncIterator
+import random
+from collections import Counter
+from collections.abc import AsyncIterator, Awaitable, Callable
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from agentport_bench import __version__ as HARNESS_VERSION
 from agentport_bench.schema import (
@@ -65,6 +77,7 @@ from safelabs.agents import (
     OpenAIAgentsAdapter,
     SemanticKernelAdapter,
 )
+from safelabs.agents.errors import ErrorInfo, classify_error
 from safelabs.prompts import get_library
 from safelabs.prompts.schemas import PromptCategory, PromptEntry
 from safelabs.runner import CATEGORY_EVAL_TYPE
@@ -154,6 +167,14 @@ class RunManifest(BaseModel):
     finished_at: str
     trial_count: int
     include_raw_output: bool
+    # Optional run-summary counts (absent from manifests written before harness reliability).
+    scored_trials: int | None = None
+    missing_infrastructure: int | None = None
+    missing_by_cell: dict[str, int] | None = None
+    retries: int | None = None
+    tool_call_only: int | None = None
+    max_attempts: int | None = None
+    missing_trials_excluded: str | None = None
 
 
 def write_manifest(output_path: Path, manifest: RunManifest) -> Path:
@@ -192,7 +213,74 @@ def existing_trial_keys(output_path: Path) -> set[tuple[str, str, str, int]]:
     return keys
 
 
+# ── run summary ──────────────────────────────────────────────────────────
+
+MISSING_EXCLUDED_NOTE = (
+    "missing_infrastructure trials (infrastructure errors that persisted after every retry) have no verdict "
+    "and are excluded from every aggregate: pass rates, verdict counts and attack-success weights use scored trials only."
+)
+
+
+class RunSummary(BaseModel):
+    """Counts for one run or file. Missing trials are reported here and excluded everywhere else."""
+
+    total_rows: int
+    scored: int
+    missing_infrastructure: int
+    missing_by_cell: dict[str, int] = Field(default_factory=dict, description="'framework|model' -> missing trials")
+    trials_retried: int = Field(description="Trials that needed more than one attempt.")
+    retries: int = Field(description="Extra attempts made across all trials (sum of attempts - 1).")
+    tool_call_only: int
+    error_classes: dict[str, int] = Field(default_factory=dict, description="error_class -> rows (final attempt).")
+    note: str = MISSING_EXCLUDED_NOTE
+
+
+def summarize_rows(rows: list[BenchTrialResult]) -> RunSummary:
+    """Summarize rows; rows without the new fields (older files) count as scored with one attempt."""
+    missing = [r for r in rows if r.is_missing]
+    cells = Counter(f"{r.framework}|{r.model}" for r in missing)
+    attempts = [(r.attempts or 1) for r in rows]
+    return RunSummary(
+        total_rows=len(rows),
+        scored=len(rows) - len(missing),
+        missing_infrastructure=len(missing),
+        missing_by_cell=dict(sorted(cells.items())),
+        trials_retried=sum(1 for a in attempts if a > 1),
+        retries=sum(a - 1 for a in attempts),
+        tool_call_only=sum(1 for r in rows if r.tool_call_only),
+        error_classes=dict(sorted(Counter(r.error_class for r in rows if r.error_class).items())),
+    )
+
+
+def format_summary_lines(summary: RunSummary) -> list[str]:
+    """Plain-text lines for the CLI and logs."""
+    lines = [
+        f"Trials: {summary.total_rows} total, {summary.scored} scored, "
+        f"{summary.missing_infrastructure} missing_infrastructure",
+        f"Retries made: {summary.retries} extra attempt(s) across {summary.trials_retried} trial(s)",
+        f"Tool-call-only trials: {summary.tool_call_only}",
+    ]
+    if summary.missing_by_cell:
+        lines.append("Missing by framework|model: " + ", ".join(f"{k}={v}" for k, v in summary.missing_by_cell.items()))
+    if summary.error_classes:
+        lines.append("Failures by class (final attempt): " + ", ".join(f"{k}={v}" for k, v in summary.error_classes.items()))
+    lines.append("Note: " + summary.note)
+    return lines
+
+
 # ── trial execution ──────────────────────────────────────────────────────
+
+def _retry_delay(
+    attempt: int, info: ErrorInfo, *, base_delay_s: float, max_delay_s: float,
+    max_retry_after_s: float, jitter_fn: Callable[[], float],
+) -> float:
+    """Seconds to wait after failed attempt number ``attempt`` (1-based): Retry-After when the provider sent
+    one (capped at ``max_retry_after_s``), else exponential backoff with jitter in [0.5, 1.0] of the step."""
+    if info.retry_after_s is not None:
+        return min(max(0.0, info.retry_after_s), max_retry_after_s)
+    step = min(max_delay_s, base_delay_s * (2 ** (attempt - 1)))
+    return step * (0.5 + 0.5 * jitter_fn())
+
 
 async def run_trial(
     adapter: AgentAdapter,
@@ -204,30 +292,65 @@ async def run_trial(
     trial_seed: int,
     provider: str | None = None,
     include_raw_output: bool = False,
+    max_attempts: int = 3,
+    base_delay_s: float = 1.0,
+    max_delay_s: float = 60.0,
+    max_retry_after_s: float = 300.0,
+    sleep: Callable[[float], Awaitable[None]] | None = None,
+    jitter_fn: Callable[[], float] | None = None,
 ) -> BenchTrialResult:
     """
     Execute one (adapter, prompt) trial and return a fully populated
     BenchTrialResult (or BenchTrialResultWithRawOutput if
     include_raw_output=True).
 
-    Always scores whatever text comes back, including "" on an adapter
-    error -- AgentAdapter.execute() never raises (see safelabs/agents/base.py),
-    and empty text scores UNCERTAIN with no special-casing needed, matching
-    the behaviour agentdojo-x's verification_report.md documents seeing in
-    its own 7,020-trial run ("the detector pipeline scores empty text as
-    UNCERTAIN; expected, not a bug").
+    AgentAdapter.execute() never raises (see safelabs/agents/base.py); a
+    failure comes back as an AgentResponse with ``error`` set, and
+    safelabs.agents.errors.classify_error() sorts it:
+
+    * infrastructure (rate limit, timeout, connection error, provider
+      outage): retried up to ``max_attempts`` times in all, with the same
+      prompt, waiting ``Retry-After`` when the provider sent one and
+      otherwise exponential backoff with jitter (``base_delay_s`` doubling,
+      at most ``max_delay_s``). ``sleep`` and ``jitter_fn`` are injectable
+      so tests never wait. If it still fails, the trial is recorded with
+      status="missing_infrastructure", no verdict, confidence or weight.
+    * content_policy, no_output_text, other: not retried, and the text that
+      came back (including "" on an error) is scored as before -- empty text
+      scores UNCERTAIN with no special-casing needed, matching the behaviour
+      agentdojo-x's verification_report.md documents seeing in its own
+      7,020-trial run ("the detector pipeline scores empty text as
+      UNCERTAIN; expected, not a bug").
+
+    ``attempts`` and ``attempt_errors`` record what happened. A response with
+    empty text and tool calls (and no error) is flagged ``tool_call_only``.
     """
-    response = await adapter.execute(prompt.prompt)
+    sleeper = sleep or asyncio.sleep
+    jitter = jitter_fn or random.random
+    limit = max(1, int(max_attempts))
+    attempts = 0
+    attempt_errors: list[str] = []
+    while True:
+        attempts += 1
+        response = await adapter.execute(prompt.prompt)
+        info = classify_error(response.error, response.metadata)
+        if info is not None:
+            attempt_errors.append(info.error_subclass)
+        if info is None or not info.is_infrastructure or attempts >= limit:
+            break
+        await sleeper(_retry_delay(
+            attempts, info, base_delay_s=base_delay_s, max_delay_s=max_delay_s,
+            max_retry_after_s=max_retry_after_s, jitter_fn=jitter,
+        ))
 
-    eval_type = CATEGORY_EVAL_TYPE.get(prompt.category.value, "prompt_injection")
-    scoring_result = await scorer.score(eval_type, prompt.prompt, response.output)
-
+    missing = info is not None and info.is_infrastructure
+    raw_output = "" if missing else response.output
     payload_hash = compute_payload_hash(
         prompt_id=prompt.id,
         model=model,
         framework=framework,
         trial_seed=trial_seed,
-        raw_output=response.output,
+        raw_output=raw_output,
     )
 
     fields: dict[str, Any] = dict(
@@ -238,21 +361,35 @@ async def run_trial(
         category=prompt.category,
         prompt_id=prompt.id,
         trial_seed=trial_seed,
-        verdict=scoring_result.verdict,
-        confidence=scoring_result.confidence,
-        attack_success_weight=VERDICT_WEIGHT[scoring_result.verdict],
         latency_ms=response.latency_ms,
         error=response.error,
-        indicators=scoring_result.indicators,
+        error_class=info.error_class if info is not None else None,
+        error_subclass=info.error_subclass if info is not None else None,
+        attempts=attempts,
+        attempt_errors=attempt_errors,
+        tool_call_only=bool(info is None and not response.output.strip() and response.tool_calls),
         usage=response.usage,
         payload_hash=payload_hash,
         timestamp=datetime.now(timezone.utc).isoformat(),
         harness_version=HARNESS_VERSION,
         library_version=get_library().version,
     )
+    if missing:
+        fields.update(status="missing_infrastructure", verdict=None, confidence=None,
+                      attack_success_weight=None, indicators=[], usage=None)
+    else:
+        eval_type = CATEGORY_EVAL_TYPE.get(prompt.category.value, "prompt_injection")
+        scoring_result = await scorer.score(eval_type, prompt.prompt, response.output)
+        fields.update(
+            status="scored",
+            verdict=scoring_result.verdict,
+            confidence=scoring_result.confidence,
+            attack_success_weight=VERDICT_WEIGHT[scoring_result.verdict],
+            indicators=scoring_result.indicators,
+        )
 
     if include_raw_output:
-        return BenchTrialResultWithRawOutput(**fields, raw_output=response.output)
+        return BenchTrialResultWithRawOutput(**fields, raw_output=raw_output)
     return BenchTrialResult(**fields)
 
 
@@ -271,6 +408,12 @@ async def run_matrix(
     include_raw_output: bool = False,
     max_concurrency: int = 1,
     scorer: Scorer | None = None,
+    max_attempts: int = 3,
+    base_delay_s: float = 1.0,
+    max_delay_s: float = 60.0,
+    max_retry_after_s: float = 300.0,
+    sleep: Callable[[float], Awaitable[None]] | None = None,
+    jitter_fn: Callable[[], float] | None = None,
 ) -> AsyncIterator[BenchTrialResult]:
     """
     Run every (category, prompt, seed) cell for the given adapter/model,
@@ -282,7 +425,11 @@ async def run_matrix(
 
     categories=None runs all 10 ASI categories. resume=True (default)
     skips any (model, framework, prompt_id, trial_seed) cell already
-    present in output_path.
+    present in output_path -- including a missing_infrastructure row, which
+    is not re-run on resume (see design notes).
+
+    max_attempts, base_delay_s, max_delay_s, max_retry_after_s, sleep and
+    jitter_fn are passed to every run_trial(); see its docstring.
     """
     library = get_library()
     cats = [PromptCategory(c.upper()) for c in categories] if categories else list(PromptCategory)
@@ -311,6 +458,8 @@ async def run_matrix(
                 adapter, prompt, scorer,
                 model=model, framework=framework, trial_seed=seed,
                 provider=provider, include_raw_output=include_raw_output,
+                max_attempts=max_attempts, base_delay_s=base_delay_s, max_delay_s=max_delay_s,
+                max_retry_after_s=max_retry_after_s, sleep=sleep, jitter_fn=jitter_fn,
             )
 
     tasks = [asyncio.create_task(_run_one(prompt, seed)) for prompt, seed in plan]

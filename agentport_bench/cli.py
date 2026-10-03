@@ -35,9 +35,12 @@ import click
 
 from agentport_bench import __version__
 from agentport_bench.harness import (
+    MISSING_EXCLUDED_NOTE,
     RunManifest,
     build_adapter,
+    format_summary_lines,
     run_matrix,
+    summarize_rows,
     write_manifest,
 )
 from agentport_bench.schema import (
@@ -102,19 +105,28 @@ def _parse_categories(categories: str | None) -> list[str] | None:
               help="Write raw model output to disk. Default off -- see docs/AGENTPORT_BENCH.md.")
 @click.option("--max-concurrency", default=1, show_default=True, type=int)
 @click.option("--timeout-s", default=30.0, show_default=True, type=float)
+@click.option("--max-attempts", default=3, show_default=True, type=click.IntRange(min=1),
+              help="Attempts per trial for infrastructure errors (rate limit, timeout, outage); 1 disables retries.")
+@click.option("--retry-base-delay-s", default=1.0, show_default=True, type=click.FloatRange(min=0.0),
+              help="First backoff delay in seconds; doubles each retry, with jitter. Retry-After is honoured.")
 def run(adapter, model, provider, target, module, adapter_kwargs, categories, seeds,
-        output, resume, dry_run, include_raw_output, max_concurrency, timeout_s) -> None:
+        output, resume, dry_run, include_raw_output, max_concurrency, timeout_s,
+        max_attempts, retry_base_delay_s) -> None:
     """Run the attack suite against your framework/model and emit an
-    AgentPort-Bench-schema .jsonl submission."""
+    AgentPort-Bench-schema .jsonl submission. A trial that still fails with an
+    infrastructure error after the last attempt is recorded as
+    missing_infrastructure (no verdict) and excluded from every aggregate."""
     asyncio.run(_run_async(
         adapter, model, provider, target, module, adapter_kwargs, categories, seeds,
         output, resume, dry_run, include_raw_output, max_concurrency, timeout_s,
+        max_attempts, retry_base_delay_s,
     ))
 
 
 async def _run_async(
     adapter_name, model, provider, target, module, adapter_kwargs, categories, seeds,
     output, resume, dry_run, include_raw_output, max_concurrency, timeout_s,
+    max_attempts=3, retry_base_delay_s=1.0,
 ) -> None:
     kwargs = _parse_adapter_kwargs(adapter_kwargs)
 
@@ -141,25 +153,37 @@ async def _run_async(
 
     started_at = datetime.now(timezone.utc).isoformat()
     count = 0
+    results = []
     async for result in run_matrix(
         adapter,
         model=model, framework=adapter_name, provider=provider,
         categories=run_categories, seeds=run_seeds, output_path=output,
         resume=resume, include_raw_output=include_raw_output,
         max_concurrency=max_concurrency,
+        max_attempts=max_attempts, base_delay_s=retry_base_delay_s,
     ):
         count += 1
-        colour = {"pass": _GREEN, "uncertain": _CYAN, "fail": _YELLOW, "vulnerable": _RED}.get(
-            result.verdict.value, _RESET
-        )
-        click.echo(f"  [{count:>4}] {result.prompt_id} seed={result.trial_seed}  "
-                   f"{colour}{result.verdict.value.upper()}{_RESET}")
+        results.append(result)
+        if result.is_missing:
+            label = (f"{_RED}MISSING{_RESET} ({result.error_subclass}, {result.attempts} attempt(s); "
+                     f"excluded from aggregates)")
+        else:
+            colour = {"pass": _GREEN, "uncertain": _CYAN, "fail": _YELLOW, "vulnerable": _RED}.get(
+                result.verdict.value, _RESET
+            )
+            label = f"{colour}{result.verdict.value.upper()}{_RESET}"
+            if result.attempts and result.attempts > 1:
+                label += f" (after {result.attempts} attempts)"
+            if result.tool_call_only:
+                label += " [tool-call-only]"
+        click.echo(f"  [{count:>4}] {result.prompt_id} seed={result.trial_seed}  {label}")
     finished_at = datetime.now(timezone.utc).isoformat()
 
     if count == 0:
         click.echo(f"\n{_YELLOW}No trials run -- everything already present in {output} (--resume).{_RESET}")
         return
 
+    summary = summarize_rows(results)
     manifest = RunManifest(
         harness_version=__version__,
         library_version=get_library().version,
@@ -169,11 +193,20 @@ async def _run_async(
         finished_at=finished_at,
         trial_count=count,
         include_raw_output=include_raw_output,
+        scored_trials=summary.scored,
+        missing_infrastructure=summary.missing_infrastructure,
+        missing_by_cell=summary.missing_by_cell,
+        retries=summary.retries,
+        tool_call_only=summary.tool_call_only,
+        max_attempts=max_attempts,
+        missing_trials_excluded=MISSING_EXCLUDED_NOTE,
     )
     manifest_path = write_manifest(output, manifest)
 
     click.echo("─" * 60)
     click.echo(f"{_BOLD}Wrote {count} trial(s) to {output}{_RESET}")
+    for line in format_summary_lines(summary):
+        click.echo(f"  {line}")
     click.echo(f"Manifest: {manifest_path}")
     if include_raw_output:
         click.echo(f"{_YELLOW}--include-raw-output was set: {output} contains raw model text "
@@ -198,6 +231,7 @@ def manifest(output) -> None:
         raise click.ClickException(f"{output} has no rows to build a manifest from")
 
     first = rows[0]
+    summary = summarize_rows(rows)
     m = RunManifest(
         harness_version=first.harness_version,
         library_version=first.library_version,
@@ -207,6 +241,12 @@ def manifest(output) -> None:
         finished_at="unknown (manifest regenerated from existing rows, not a live run)",
         trial_count=len(rows),
         include_raw_output=isinstance(first, BenchTrialResultWithRawOutput),
+        scored_trials=summary.scored,
+        missing_infrastructure=summary.missing_infrastructure,
+        missing_by_cell=summary.missing_by_cell,
+        retries=summary.retries,
+        tool_call_only=summary.tool_call_only,
+        missing_trials_excluded=MISSING_EXCLUDED_NOTE,
     )
     path = write_manifest(output, m)
     click.echo(f"Wrote {path}")
@@ -220,6 +260,9 @@ def _print_report_text(report: ValidationReport) -> None:
         c = report.completeness
         click.echo(f"  {c.total_rows} row(s) parsed; "
                    f"{len(c.categories_covered)}/10 categories covered")
+        if c.missing_infrastructure:
+            click.echo(f"  {_YELLOW}{c.missing_infrastructure} missing_infrastructure row(s) "
+                       f"({c.scored_rows} scored); missing trials are excluded from coverage and every aggregate{_RESET}")
         if c.categories_missing:
             click.echo(f"  {_YELLOW}missing: {', '.join(c.categories_missing)}{_RESET}")
 
@@ -342,10 +385,12 @@ def compare(submissions) -> None:
             )
         for path, _version in group:
             rows = load_submission(path)
-            n = len(rows)
-            pass_rate = sum(1 for r in rows if r.verdict.value == "pass") / n if n else 0.0
+            scored = [r for r in rows if not r.is_missing]
+            n = len(scored)
+            pass_rate = sum(1 for r in scored if r.verdict.value == "pass") / n if n else 0.0
             model = rows[0].model if rows else "?"
-            click.echo(f"  {path}: {n} row(s), model={model}, pass_rate={pass_rate:.1%}")
+            missing_note = (f", {len(rows) - n} missing_infrastructure excluded" if len(rows) != n else "")
+            click.echo(f"  {path}: {n} row(s), model={model}, pass_rate={pass_rate:.1%}{missing_note}")
 
     if len(groups) > 1:
         click.echo(

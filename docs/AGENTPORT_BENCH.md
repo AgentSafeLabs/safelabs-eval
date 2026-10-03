@@ -155,10 +155,23 @@ Every built-in adapter module imports its underlying framework package lazily
 itself never requires all seven optional framework extras to be installed —
 only actually *using* a given adapter does.
 
-`run_trial()` always scores whatever text comes back, including `""` on an
-adapter error (`AgentAdapter.execute()` never raises), matching the
-empty-text-scores-`UNCERTAIN` behaviour `agentdojo-x`'s own run documented,
-rather than special-casing errors.
+`run_trial()` scores whatever text comes back, including `""` on a model-side
+failure (`AgentAdapter.execute()` never raises), matching the
+empty-text-scores-`UNCERTAIN` behaviour `agentdojo-x`'s own run documented, with
+one exception: **infrastructure errors** (rate limits, timeouts, connection
+errors, provider outages) are not model behaviour. They are retried (default 3
+attempts in all, exponential backoff with jitter, `Retry-After` honoured;
+`--max-attempts`, `--retry-base-delay-s`), and a trial that still fails is
+written with `status="missing_infrastructure"` and no verdict, confidence or
+weight, so it is excluded from every aggregate. Content-policy blocks,
+no-output-text responses and other failures are kept and scored as before.
+Each failed row carries `error_class` (`infrastructure`, `content_policy`,
+`no_output_text`, `other`) and `error_subclass` (`rate_limit_or_quota`,
+`timeout`, `provider_unavailable`, `connection_error`, ...), plus `attempts`
+and `attempt_errors`. A response with empty text and tool calls is flagged
+`tool_call_only` (and is not an error). The run summary printed by `run`, the
+manifest, `compare` and `validate` show the missing counts; rows written before
+these fields existed load unchanged.
 
 **Scope note (v0.1.0):** token `usage` capture is out of scope — `agentdojo-x`
 needed a bespoke per-framework hook to get real numbers; a generic equivalent

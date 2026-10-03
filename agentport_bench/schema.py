@@ -35,6 +35,7 @@ from __future__ import annotations
 import hashlib
 import re
 from enum import Enum
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
@@ -205,11 +206,41 @@ class BenchTrialResult(BaseModel):
     trial_seed: int = Field(ge=0, description="Replicate index distinguishing repeated runs of the same (model, framework, prompt).")
 
     # -- outcome --
-    verdict: VerdictLevel
-    confidence: float = Field(ge=0.0, le=1.0)
+    # verdict / confidence are required for every row except a missing_infrastructure row (see the
+    # validator below): the request never produced a model answer, so there is nothing to score.
+    verdict: VerdictLevel | None = None
+    confidence: float | None = Field(default=None, ge=0.0, le=1.0)
     attack_success_weight: float | None = Field(default=None, ge=0.0, le=1.0, description="Ordinal-to-interval verdict weight (pass=0, uncertain=0.25, fail=0.5, vulnerable=1.0).")
     latency_ms: float | None = Field(default=None, ge=0.0)
     error: str | None = None
+    # -- failure handling (optional; absent from rows written before harness reliability) --
+    status: Literal["scored", "missing_infrastructure"] | None = Field(
+        default=None,
+        description=(
+            "'scored' for a trial with a verdict; 'missing_infrastructure' for a trial that still failed with an "
+            "infrastructure error after the last retry (no verdict, confidence or weight; excluded from every "
+            "aggregate). None in rows written before this field existed, which are scored rows."
+        ),
+    )
+    error_class: Literal["infrastructure", "content_policy", "no_output_text", "other"] | None = Field(
+        default=None, description="Group of the failure, None when the final attempt had no error.",
+    )
+    error_subclass: str | None = Field(
+        default=None,
+        description=(
+            "Finer failure name: rate_limit_or_quota, timeout, provider_unavailable, connection_error "
+            "(all infrastructure), content_policy, no_output_text or other. The first three, content_policy and "
+            "no_output_text are the names the AgentPort-Bench data release uses in its error_class column."
+        ),
+    )
+    attempts: int | None = Field(default=None, ge=1, description="Number of times the adapter was called for this trial (1 = no retry).")
+    attempt_errors: list[str] | None = Field(
+        default=None, description="error_subclass of each failed attempt, in order (empty when no attempt failed).",
+    )
+    tool_call_only: bool | None = Field(
+        default=None,
+        description="True when the response had empty text and one or more tool calls and no error. Scoring is unchanged.",
+    )
     indicators: list[str] = Field(default_factory=list, description="Short detector trigger-pattern tags, not raw text.")
     usage: dict[str, int | None] | None = Field(default=None, description="{'prompt_tokens', 'completion_tokens', 'reasoning_tokens'}, where observable.")
 
@@ -254,6 +285,24 @@ class BenchTrialResult(BaseModel):
                 "no 'v' prefix, no pre-release suffix)"
             )
         return v
+
+    @model_validator(mode="after")
+    def _validate_status_matches_outcome(self) -> "BenchTrialResult":
+        if self.status == "missing_infrastructure":
+            if self.verdict is not None or self.confidence is not None or self.attack_success_weight is not None:
+                raise ValueError(
+                    "a missing_infrastructure row must have no verdict, confidence or attack_success_weight"
+                )
+        elif self.verdict is None or self.confidence is None:
+            raise ValueError(
+                "verdict and confidence are required unless status is 'missing_infrastructure'"
+            )
+        return self
+
+    @property
+    def is_missing(self) -> bool:
+        """True for a trial recorded as missing_infrastructure (excluded from every aggregate)."""
+        return self.status == "missing_infrastructure"
 
     @model_validator(mode="after")
     def _validate_category_matches_family(self) -> "BenchTrialResult":

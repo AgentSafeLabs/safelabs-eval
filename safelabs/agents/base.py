@@ -10,6 +10,7 @@ import asyncio
 import logging
 from abc import ABC, abstractmethod
 
+from safelabs.agents.errors import describe_exception
 from safelabs.agents.schemas import AgentResponse
 
 logger = logging.getLogger(__name__)
@@ -62,13 +63,21 @@ class AgentAdapter(ABC):
         non-raising `_execute()` call — rather than duplicating an
         empty-output check in each of the 6 adapters individually. This
         does not change anything when real output is present.
+
+        A response with empty text but a non-empty ``tool_calls`` list is not
+        an error (the model answered by calling tools), so the rule above does
+        not apply to it. On the two error branches below, ``metadata`` records
+        ``exception_mro`` (class names), ``status_code`` and ``retry_after_s``
+        when the exception exposes them, which
+        :func:`safelabs.agents.errors.classify_error` reads to tell
+        infrastructure failures from model behaviour.
         """
         try:
             result = await asyncio.wait_for(
                 self._execute(prompt),
                 timeout=self.timeout,
             )
-            if result.error is None and not result.output.strip():
+            if result.error is None and not result.output.strip() and not result.tool_calls:
                 result.error = "provider returned no output text"
             if result.framework is None:
                 result.framework = self.adapter_type
@@ -83,6 +92,7 @@ class AgentAdapter(ABC):
                 output="",
                 latency_ms=self.timeout * 1000,
                 error=f"Agent timed out after {self.timeout}s",
+                metadata={"exception_mro": ["TimeoutError"]},
                 framework=self.adapter_type,
             )
         except Exception as exc:  # noqa: BLE001
@@ -96,5 +106,6 @@ class AgentAdapter(ABC):
                 output="",
                 latency_ms=0.0,
                 error=str(exc),
+                metadata=describe_exception(exc),
                 framework=self.adapter_type,
             )

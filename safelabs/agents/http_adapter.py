@@ -18,6 +18,7 @@ import time
 import httpx
 
 from safelabs.agents.base import AgentAdapter
+from safelabs.agents.errors import retry_after_seconds
 from safelabs.agents.schemas import AgentResponse, ToolCall, normalize_usage
 
 _RESPONSE_KEYS = ("response", "output", "message", "text", "content", "result")
@@ -146,11 +147,16 @@ class HttpAdapter(AgentAdapter):
         latency_ms = (time.perf_counter() - t0) * 1000
 
         if http_response.status_code >= 400:
+            error_meta: dict = {"status_code": http_response.status_code}
+            headers = getattr(http_response, "headers", None)
+            retry_after = retry_after_seconds(headers.get("retry-after")) if headers is not None else None
+            if retry_after is not None:
+                error_meta["retry_after_s"] = retry_after       # only when the server sent Retry-After
             return AgentResponse(
                 output="",
                 latency_ms=latency_ms,
                 error=f"HTTP {http_response.status_code}: {http_response.text[:200]}",
-                metadata={"status_code": http_response.status_code},
+                metadata=error_meta,
             )
 
         try:
