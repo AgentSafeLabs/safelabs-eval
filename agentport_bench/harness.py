@@ -33,6 +33,8 @@ see safelabs.agents.errors) is retried with exponential backoff and jitter
 (max_attempts, default 3; Retry-After is honoured) and, if it still fails, is
 recorded with status="missing_infrastructure" and no verdict or weight, so it
 is excluded from every aggregate instead of being scored UNCERTAIN.
+rerun_missing() re-executes only those missing rows later (after a cool-down),
+rewriting the results file in place and atomically.
 Content-policy, no-output-text and other failures are model behaviour: they
 are not retried and keep their scoring. A response with empty text and tool
 calls is flagged tool_call_only (still scored as before).
@@ -49,7 +51,9 @@ from __future__ import annotations
 import asyncio
 import importlib
 import json
+import os
 import random
+import shutil
 from collections import Counter
 from collections.abc import AsyncIterator, Awaitable, Callable
 from datetime import datetime, timezone
@@ -175,6 +179,8 @@ class RunManifest(BaseModel):
     tool_call_only: int | None = None
     max_attempts: int | None = None
     missing_trials_excluded: str | None = None
+    rerun_passes: int | None = None
+    retry_profile: str | None = None
 
 
 def write_manifest(output_path: Path, manifest: RunManifest) -> Path:
@@ -211,6 +217,35 @@ def existing_trial_keys(output_path: Path) -> set[tuple[str, str, str, int]]:
         except (json.JSONDecodeError, KeyError, TypeError):
             continue
     return keys
+
+
+# ── retry profiles ───────────────────────────────────────────────────────
+
+#: Named retry settings for run_trial()/run_matrix()/rerun_missing(). "default" is what the harness did
+#: before profiles existed; "benchmark" waits longer and tries more often for a full benchmark run.
+RETRY_PROFILES: dict[str, dict[str, float | int]] = {
+    "default":   {"max_attempts": 3, "base_delay_s": 1.0, "max_delay_s": 60.0,  "max_retry_after_s": 300.0},
+    "benchmark": {"max_attempts": 6, "base_delay_s": 2.0, "max_delay_s": 120.0, "max_retry_after_s": 600.0},
+}
+
+
+def resolve_retry_settings(
+    profile: str = "default",
+    *,
+    max_attempts: int | None = None,
+    base_delay_s: float | None = None,
+    max_delay_s: float | None = None,
+    max_retry_after_s: float | None = None,
+) -> dict[str, float | int]:
+    """The profile's settings, with every explicitly given (non-None) value overriding it."""
+    if profile not in RETRY_PROFILES:
+        raise ValueError(f"unknown retry profile {profile!r}; expected one of {sorted(RETRY_PROFILES)}")
+    settings = dict(RETRY_PROFILES[profile])
+    for key, value in (("max_attempts", max_attempts), ("base_delay_s", base_delay_s),
+                       ("max_delay_s", max_delay_s), ("max_retry_after_s", max_retry_after_s)):
+        if value is not None:
+            settings[key] = value
+    return settings
 
 
 # ── run summary ──────────────────────────────────────────────────────────
@@ -469,3 +504,166 @@ async def run_matrix(
             with output_path.open("a", encoding="utf-8") as f:
                 f.write(result.model_dump_json() + "\n")
         yield result
+
+
+# ── rerun only the missing trials, in place ──────────────────────────────
+
+class RerunCell(BaseModel):
+    reattempted: int = 0
+    recovered: int = 0
+    still_missing: int = 0
+
+
+class RerunSummary(BaseModel):
+    """What one `rerun_missing()` pass did. Scored rows are never re-executed."""
+
+    reattempted: int = 0
+    recovered: int = Field(default=0, description="Re-attempted rows that are now scored.")
+    still_missing: int = Field(default=0, description="Re-attempted rows that failed again with an infrastructure error.")
+    extra_attempts: int = Field(default=0, description="Adapter calls made in this pass.")
+    by_cell: dict[str, RerunCell] = Field(default_factory=dict, description="'framework|model' -> counts")
+    skipped_not_selected: int = Field(default=0, description="Missing rows of another framework/model or outside --categories.")
+    skipped_library_mismatch: int = Field(default=0, description="Missing rows scored against a different prompt-library version.")
+    skipped_unknown_prompt: int = Field(default=0, description="Missing rows whose prompt_id is not in the current library.")
+    rewrote_file: bool = False
+
+
+def format_rerun_lines(summary: RerunSummary) -> list[str]:
+    """Plain-text lines for the CLI and logs."""
+    lines = [
+        f"Rerun pass: {summary.reattempted} row(s) re-attempted, {summary.recovered} recovered (now scored), "
+        f"{summary.still_missing} still missing_infrastructure",
+    ]
+    for cell, c in sorted(summary.by_cell.items()):
+        lines.append(f"  {cell}: {c.reattempted} re-attempted, {c.recovered} recovered, {c.still_missing} still missing")
+    skipped = summary.skipped_not_selected + summary.skipped_library_mismatch + summary.skipped_unknown_prompt
+    if skipped:
+        lines.append(
+            f"Skipped missing row(s): {summary.skipped_not_selected} other framework/model or category, "
+            f"{summary.skipped_library_mismatch} different library version, {summary.skipped_unknown_prompt} unknown prompt id"
+        )
+    lines.append("Scored rows were not re-executed; the file was " + ("rewritten in place." if summary.rewrote_file else "left untouched."))
+    return lines
+
+
+def _replace_file_atomically(path: Path, text: str) -> None:
+    """Write ``text`` to a temporary file in the same directory, then os.replace it over ``path``.
+    If anything raises before the replace, ``path`` is untouched and the temporary file is removed."""
+    tmp = path.with_name(f".{path.name}.rerun-{os.getpid()}.tmp")
+    try:
+        with tmp.open("w", encoding="utf-8", newline="") as f:
+            f.write(text)
+            f.flush()
+            os.fsync(f.fileno())
+        shutil.copymode(path, tmp)
+        os.replace(tmp, path)
+    finally:
+        if tmp.exists():
+            tmp.unlink()
+
+
+async def rerun_missing(
+    adapter: AgentAdapter,
+    *,
+    model: str,
+    framework: str,
+    output_path: Path,
+    categories: list[str] | None = None,
+    max_concurrency: int = 1,
+    scorer: Scorer | None = None,
+    max_attempts: int = 3,
+    base_delay_s: float = 1.0,
+    max_delay_s: float = 60.0,
+    max_retry_after_s: float = 300.0,
+    sleep: Callable[[float], Awaitable[None]] | None = None,
+    jitter_fn: Callable[[], float] | None = None,
+) -> RerunSummary:
+    """
+    Re-execute only the ``status == "missing_infrastructure"`` rows of ``output_path`` for this
+    (model, framework), then rewrite the file in place.
+
+    * Only those rows run again (same trial key, prompt text from the library, seed and
+      identity fields); scored rows are never re-executed and their lines are kept byte for byte.
+    * A row that now succeeds becomes ``status="scored"`` with its verdict, and its payload_hash
+      is computed from the new output (the hash binds the output, so a recovered row's hash
+      necessarily differs from the empty-output hash it had while missing); a row that fails
+      again stays ``missing_infrastructure`` (same hash, same key).
+    * History is cumulative: ``attempts`` adds this pass's attempts, ``attempt_errors`` appends
+      this pass's entries to the earlier ones, ``rerun_passes`` goes up by one.
+    * Rows scored against a different library version, or whose prompt id is gone, are skipped
+      and counted (the prompt would not be the same one).
+    * Safe write: the full updated file goes to a temporary file in the same directory and is
+      os.replace()d over the original, so row order is preserved and an exception or kill
+      before the replace leaves the original untouched. Nothing is written when no row ran.
+    """
+    if not output_path.exists():
+        raise FileNotFoundError(f"{output_path} does not exist; nothing to rerun")
+    library = get_library()
+    by_id = {entry.id: entry for entry in library.entries}
+    wanted = {c.upper() for c in categories} if categories else None
+    scorer = scorer or Scorer()
+    summary = RerunSummary()
+
+    lines = output_path.read_text(encoding="utf-8").splitlines(keepends=True)
+    targets: list[tuple[int, BenchTrialResult, PromptEntry]] = []
+    for i, line in enumerate(lines):
+        if not line.strip():
+            continue
+        try:
+            obj = json.loads(line)
+            if not isinstance(obj, dict) or obj.get("status") != "missing_infrastructure":
+                continue
+            row = (BenchTrialResultWithRawOutput if "raw_output" in obj else BenchTrialResult)(**obj)
+        except Exception:  # noqa: BLE001  (a line that does not parse is left exactly as it is)
+            continue
+        if row.model != model or row.framework != framework or (wanted is not None and row.category.value not in wanted):
+            summary.skipped_not_selected += 1
+        elif row.library_version != library.version:
+            summary.skipped_library_mismatch += 1
+        elif row.prompt_id not in by_id:
+            summary.skipped_unknown_prompt += 1
+        else:
+            targets.append((i, row, by_id[row.prompt_id]))
+    if not targets:
+        return summary
+
+    semaphore = asyncio.Semaphore(max(1, max_concurrency))
+
+    async def _one(row: BenchTrialResult, prompt: PromptEntry) -> BenchTrialResult:
+        async with semaphore:
+            fresh = await run_trial(
+                adapter, prompt, scorer,
+                model=row.model, framework=row.framework, trial_seed=row.trial_seed, provider=row.provider,
+                include_raw_output=isinstance(row, BenchTrialResultWithRawOutput),
+                max_attempts=max_attempts, base_delay_s=base_delay_s, max_delay_s=max_delay_s,
+                max_retry_after_s=max_retry_after_s, sleep=sleep, jitter_fn=jitter_fn,
+            )
+        merged = fresh.model_dump()
+        merged["attempts"] = (row.attempts or 1) + (fresh.attempts or 1)
+        merged["attempt_errors"] = list(row.attempt_errors or []) + list(fresh.attempt_errors or [])
+        merged["rerun_passes"] = row.rerun_passes + 1
+        summary.extra_attempts += fresh.attempts or 1
+        return type(fresh)(**merged)
+
+    tasks = [asyncio.create_task(_one(row, prompt)) for _, row, prompt in targets]
+    try:
+        results = await asyncio.gather(*tasks)
+    except BaseException:
+        for task in tasks:
+            task.cancel()
+        raise
+
+    for (i, row, _), new in zip(targets, results):
+        lines[i] = new.model_dump_json() + ("\n" if lines[i].endswith("\n") else "")
+        cell = summary.by_cell.setdefault(f"{row.framework}|{row.model}", RerunCell())
+        cell.reattempted += 1
+        summary.reattempted += 1
+        if new.is_missing:
+            cell.still_missing += 1
+            summary.still_missing += 1
+        else:
+            cell.recovered += 1
+            summary.recovered += 1
+    _replace_file_atomically(output_path, "".join(lines))
+    summary.rewrote_file = True
+    return summary

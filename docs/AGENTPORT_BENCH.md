@@ -191,7 +191,46 @@ agentport-bench run --adapter {http,custom} --model MODEL [--provider P]
   [--adapter-kwarg KEY=VALUE ...] [--categories ASI01,ASI06,...]
   [--seeds N] --output PATH [--resume/--no-resume] [--dry-run]
   [--include-raw-output] [--max-concurrency N] [--timeout-s N]
+  [--retry-profile {default,benchmark}] [--max-attempts N]
+  [--retry-base-delay-s S] [--retry-max-delay-s S] [--retry-after-cap-s S]
+  [--rerun-missing]
 ```
+
+**Retry profiles.** Infrastructure errors (rate limits, timeouts, connection
+errors, provider outages) are retried inside the run with exponential backoff and
+jitter, honouring `Retry-After`. `--retry-profile` picks the settings:
+
+| profile | attempts | base delay | delay cap | longest `Retry-After` honoured |
+|---|---|---|---|---|
+| `default` | 3 | 1 s | 60 s | 300 s |
+| `benchmark` | 6 | 2 s | 120 s | 600 s |
+
+Use `benchmark` for a full benchmark run. An explicit flag overrides the
+profile's value (for example `--retry-profile benchmark --max-attempts 4`).
+
+**Run, cool down, rerun the missing trials.** Retries inside one run cannot
+outlast a long rate-limit burst (the CrewAI x gpt-5.5 cell was rate-limited for
+about 30 minutes). The intended workflow is:
+
+1. Run the full benchmark: `agentport-bench run ... --retry-profile benchmark --output results.jsonl`.
+   Trials that still fail with an infrastructure error are written as
+   `status="missing_infrastructure"` (no verdict) and excluded from every aggregate.
+2. Wait until the provider's limits have recovered (the cool-down).
+3. Rerun only those trials, with the same model and adapter:
+   `agentport-bench run ... --resume --rerun-missing --output results.jsonl`.
+   Scored rows are not re-executed. A recovered row becomes `status="scored"` with
+   its verdict (its `payload_hash` is recomputed from the new output); a row that
+   fails again stays `missing_infrastructure`. `attempts` and `attempt_errors`
+   are cumulative across passes and `rerun_passes` counts the passes a row took
+   part in. The pass prints how many rows were re-attempted, recovered and are
+   still missing, by framework x model. Repeat steps 2 and 3 as needed.
+
+The rerun rewrites the file in place: the full updated file is written to a
+temporary file in the same directory and then moved over the original, so row
+order is preserved, scored rows keep exactly the same lines, and if the process
+stops or raises first the original file is untouched. Missing rows of another
+framework or model, rows outside `--categories`, and rows scored against a
+different prompt-library version are skipped and counted.
 
 `--adapter` only accepts `http` and `custom` — not all 7 framework names. A
 CLI string flag can't carry a live Python object (a LangChain `Runnable`, a
