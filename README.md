@@ -452,6 +452,8 @@ statement of this work.
 - ["Replicating a Detector-Calibration False-Positive Pattern in GPT-5.5 Prompt-Injection Verdicts Across a Second Model and Category"](https://doi.org/10.6084/m9.figshare.33110474) — original preprint; now part of ABC Merged
 - ["Cross-Framework Portability of Agentic AI Security: A Controlled, Payload-Verified Evaluation"](https://doi.org/10.6084/m9.figshare.33110642) — original preprint; now part of AgentPort-Bench
 
+- "How Much Does Text-Only Scoring Miss? A Pre-Registered Trace Benchmark of Tool-Using Agents" (W. Javed, 2026). Under peer review. Code and pre-registration: https://github.com/AgentSafeLabs/safelabs-trace. Plain-language summary: https://agentsafelabs.com/blog/your-ai-agent-said-no-but-what-did-its-tools-do/
+
 The exploratory run that motivated Paper A is documented in the original
 blog post: ["Why Claude Haiku Returned UNCERTAIN: Anatomy of an Indirect
 Prompt Injection in an Agentic System"](https://agentsafelabs.com/blog/why-claude-haiku-returned-uncertain-anatomy-of-an-indirect-prompt-injection-in-an-agentic-system/).
@@ -461,6 +463,7 @@ Prompt Injection in an Agentic System"](https://agentsafelabs.com/blog/why-claud
 ## Ecosystem
 
 - **[safelabs-research](https://github.com/AgentSafeLabs/safelabs-research)** — attack taxonomy, advisories, and blog posts on AI agent security; the source for research findings published using this framework.
+- **[safelabs-trace](https://github.com/AgentSafeLabs/safelabs-trace)** — pre-registered trace benchmark that scores what agents do with their tools, not just what they say. Source-available.
 - **[Blog](https://agentsafelabs.com/blog)** — research writeups from Safe Labs AI, including ["We Were Wrong About the UNCERTAIN Results — Here's What Actually Happened"](https://agentsafelabs.com/blog/we-were-wrong-about-the-uncertain-results-heres-what-actually-happened/), a public correction — with a dated addendum on the same page — of an earlier finding about this framework's own detector reliability.
 
 ---
@@ -472,6 +475,25 @@ Prompt Injection in an Agentic System"](https://agentsafelabs.com/blog/why-claud
 - [Garak](https://github.com/NVIDIA/garak) — LLM vulnerability scanner
 - [PyRIT](https://github.com/microsoft/PyRIT) — Microsoft Python Risk Identification Toolkit
 - [Promptfoo](https://github.com/promptfoo/promptfoo) — LLM testing framework (announced agreement to be acquired by OpenAI, March 2026)
+
+---
+
+## Citing safelabs-eval
+
+If you use safelabs-eval in your work, please cite it:
+
+```bibtex
+@misc{javed_safelabs_eval,
+  author    = {Javed, Waqar},
+  title     = {safelabs-eval},
+  publisher = {Zenodo},
+  doi       = {10.5281/zenodo.22826282},
+  url       = {https://github.com/AgentSafeLabs/safelabs-eval},
+  note      = {Computer software}
+}
+```
+
+The DOI above always resolves to the latest release. Version 0.11.2 has its own DOI, 10.5281/zenodo.23118725.
 
 ---
 
