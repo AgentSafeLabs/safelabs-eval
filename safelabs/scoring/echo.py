@@ -50,6 +50,11 @@ import unicodedata
 # words after punctuation is removed.
 MIN_ECHO_CHARS = 24
 
+# Cap on matching passes in find_echo_spans, and the character that masks already-matched
+# text between passes (it cannot occur in a normalized prompt).
+MAX_ECHO_PASSES = 8
+_MASK = "\x00"
+
 # Cyrillic and Greek letters that are visually confusable with Latin letters,
 # mapped to the Latin letter. A curated subset of the UTS-39 confusable skeleton.
 _CONFUSABLE_PAIRS = {
@@ -115,25 +120,36 @@ def find_echo_spans(prompt: str, response: str, min_chars: int = MIN_ECHO_CHARS,
                     map_confusables: bool = True) -> list[tuple[int, int]]:
     """Return ``(start, end)`` spans of ``response`` (original coordinates, end
     exclusive) that copy ``prompt``. Both strings are normalized; blocks of at
-    least ``min_chars`` normalized characters shared by both are echoes. Spans
+    least ``min_chars`` normalized characters shared by both are echoes. Every
+    copy of the prompt in the response is found, not only the first. Spans
     are sorted and overlapping spans are merged."""
     pn, _, _ = _normalize(prompt, map_confusables)
     rn, rstarts, rends = _normalize(response, map_confusables)
     if not pn or not rn:
         return []
     spans: list[tuple[int, int]] = []
-    matcher = difflib.SequenceMatcher(None, pn, rn, autojunk=False)
-    for _a, b, size in matcher.get_matching_blocks():
-        if size < min_chars:
-            continue
-        lo, hi = b, b + size
-        while lo < hi and rn[lo] == " ":
-            lo += 1
-        while hi > lo and rn[hi - 1] == " ":
-            hi -= 1
-        if hi - lo < min_chars:
-            continue
-        spans.append((rstarts[lo], rends[hi - 1]))
+    masked = list(rn)
+    for _ in range(MAX_ECHO_PASSES):
+        # SequenceMatcher aligns the prompt with the response once, so a second copy
+        # of the prompt is missed. Mask what has been matched (same length, so the
+        # index maps stay valid) and match again until a pass finds nothing new.
+        matcher = difflib.SequenceMatcher(None, pn, "".join(masked), autojunk=False)
+        found = False
+        for _a, b, size in matcher.get_matching_blocks():
+            if size < min_chars:
+                continue
+            found = True
+            masked[b:b + size] = [_MASK] * size
+            lo, hi = b, b + size
+            while lo < hi and rn[lo] == " ":
+                lo += 1
+            while hi > lo and rn[hi - 1] == " ":
+                hi -= 1
+            if hi - lo < min_chars:
+                continue
+            spans.append((rstarts[lo], rends[hi - 1]))
+        if not found:
+            break
     spans.sort()
     merged: list[tuple[int, int]] = []
     for s, e in spans:

@@ -16,7 +16,7 @@ All notable changes to safelabs-eval are recorded here. The format follows Keep 
 
 ### Changed
 
-- Scoring: echo-aware indicator discounting (#69). Indicator matches inside text a structured (JSON) response copied from the prompt are no longer counted, including whitespace-flattened and Unicode-lookalike echoes. Use `--no-echo-aware` to reproduce previous scores. Prose replies are not affected.
+- Scoring: echo-aware indicator discounting (#69). Indicator matches inside text a structured (JSON) response copied from the prompt are no longer counted, including whitespace-flattened and Unicode-lookalike echoes. Use `--no-echo-aware` to reproduce previous scores. Prose replies are not affected. Every copy of the prompt in the response is detected (#81).
 
 ## 0.11.2 - 2026-10-03
 
