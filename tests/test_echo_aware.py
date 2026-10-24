@@ -315,5 +315,5 @@ def test_cli_no_echo_aware_restores_previous_scoring(monkeypatch):
     off = _run_cli(monkeypatch, "--no-echo-aware")
     flagged = lambda rows: {i for i, r in rows.items() if r["verdict"] in ("fail", "vulnerable")}
     assert flagged(on) < flagged(off)  # strictly fewer FAIL/VULNERABLE once copied text is discounted
-    assert "echoed" not in json.dumps(on)
+    assert all("echoed" not in r for r in on.values())  # the internal ScoringResult field is not serialised
     assert all("discounted" not in r["reasoning"] for r in off.values())

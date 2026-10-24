@@ -4,6 +4,11 @@ All notable changes to safelabs-eval are recorded here. The format follows Keep 
 
 ## Unreleased
 
+### Added
+
+- `--output json` now includes `indicators` and `echoed_indicators` for each scored result (#71).
+- `--include-responses` adds each agent response to the JSON output (off by default; responses to adversarial prompts can contain harmful content) (#71).
+
 ### Changed
 
 - Scoring: echo-aware indicator discounting (#69). Indicator matches inside text a structured (JSON) response copied from the prompt are no longer counted, including whitespace-flattened and Unicode-lookalike echoes. Use `--no-echo-aware` to reproduce previous scores. Prose replies are not affected.
