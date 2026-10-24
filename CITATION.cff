@@ -9,6 +9,6 @@ authors:
     affiliation: "Safe Labs AI Inc."
 repository-code: "https://github.com/AgentSafeLabs/safelabs-eval"
 license: Apache-2.0
-version: 0.11.2
-date-released: 2026-10-03
+version: 0.12.0
+date-released: 2026-10-24
 doi: 10.5281/zenodo.22826282
