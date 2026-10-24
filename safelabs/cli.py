@@ -12,6 +12,7 @@ logger = logging.getLogger(__name__)
 from safelabs.prompts.loader import get_library
 from safelabs.prompts.schemas import PromptCategory
 from safelabs.scoring.models import VerdictLevel
+from safelabs.scoring.scorer import Scorer
 from safelabs.runner import run_eval
 
 _RED="[91m"; _YELLOW="[93m"; _GREEN="[92m"; _CYAN="[96m"; _BOLD="[1m"; _RESET="[0m"
@@ -30,9 +31,10 @@ def main(): """safelabs-eval — ASI-category red-teaming for AI agents."""
 @click.option("--retry-profile",default="default",show_default=True,type=click.Choice(["default","benchmark"]),
               help="Retries for infrastructure errors (rate limit, timeout, outage). default: 3 attempts, 1 s base delay; "
                    "benchmark: 6 attempts, 2 s. The flags below override the profile.")
+@click.option("--no-echo-aware",is_flag=True,default=False,help="Count indicator matches even inside text the agent copied from the prompt (the scoring used before echo-aware discounting).")
 @click.option("--max-attempts",default=None,type=click.IntRange(min=1),help="Attempts per prompt for infrastructure errors; 1 disables retries.")
 @click.option("--retry-base-delay-s",default=None,type=click.FloatRange(min=0.0),help="First backoff delay in seconds (doubles each retry, with jitter).")
-def run(target,category,timeout,output,auth_header,retry_profile,max_attempts,retry_base_delay_s):
+def run(target,category,timeout,output,auth_header,retry_profile,no_echo_aware,max_attempts,retry_base_delay_s):
     """Red-team an agent endpoint with ASI-category prompts.
 
     Prompts run through safelabs.runner.run_eval(). An infrastructure error (rate limit,
@@ -46,7 +48,8 @@ def run(target,category,timeout,output,auth_header,retry_profile,max_attempts,re
       safelabs run --target http://localhost:8000/chat --category all --retry-profile benchmark
     """
     asyncio.run(_run_async(target,category,timeout,output,auth_header,
-                           retry_profile=retry_profile,max_attempts=max_attempts,retry_base_delay_s=retry_base_delay_s))
+                           retry_profile=retry_profile,max_attempts=max_attempts,retry_base_delay_s=retry_base_delay_s,
+                           echo_aware=not no_echo_aware))
 
 def _result_row(rec):
     """One entry of the CLI's results list for an EvalRecord. Normal scored rows and unscored error rows keep the
@@ -62,7 +65,7 @@ def _result_row(rec):
     if rec.attempts and rec.attempts > 1: row["attempts"] = rec.attempts
     return row
 
-async def _run_async(target,category,timeout,output,auth_header,retry_profile="default",max_attempts=None,retry_base_delay_s=None):
+async def _run_async(target,category,timeout,output,auth_header,retry_profile="default",max_attempts=None,retry_base_delay_s=None,echo_aware=True):
     from safelabs.agents.http_adapter import HttpAdapter
     headers = {"Authorization": auth_header} if auth_header else {}
     adapter = HttpAdapter(base_url=target, headers=headers, timeout=timeout)
@@ -95,10 +98,11 @@ async def _run_async(target,category,timeout,output,auth_header,retry_profile="d
             click.echo(f"Reason : {s.reasoning}")
             if s.remediation_hint: click.echo(f"Fix    : {s.remediation_hint}")
 
+    extra = {} if echo_aware else {"scorer": Scorer(echo_aware=False)}  # default Scorer() is echo-aware
     result = await run_eval(
         adapter.execute, categories=None if category.lower()=="all" else [category.upper()],
         retry_profile=retry_profile, max_attempts=max_attempts, base_delay_s=retry_base_delay_s,
-        on_start=on_start, on_record=on_record,
+        on_start=on_start, on_record=on_record, **extra,
     )
     results_out = [_result_row(rec) for rec in result.records]
     if output=="text": _summary(results_out)

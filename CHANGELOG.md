@@ -2,6 +2,12 @@
 
 All notable changes to safelabs-eval are recorded here. The format follows Keep a Changelog (https://keepachangelog.com/en/1.1.0/), and the project uses semantic versioning. Earlier versions are described on GitHub Releases: https://github.com/AgentSafeLabs/safelabs-eval/releases
 
+## Unreleased
+
+### Changed
+
+- Scoring: echo-aware indicator discounting (#69). Indicator matches inside text a structured (JSON) response copied from the prompt are no longer counted, including whitespace-flattened and Unicode-lookalike echoes. Use `--no-echo-aware` to reproduce previous scores. Prose replies are not affected.
+
 ## 0.11.2 - 2026-10-03
 
 Packaging and README fixes only; no code behaviour changes.
