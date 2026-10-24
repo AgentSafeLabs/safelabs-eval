@@ -13,7 +13,7 @@ from safelabs.prompts.loader import get_library
 from safelabs.prompts.schemas import PromptCategory
 from safelabs.scoring.models import VerdictLevel
 from safelabs.scoring.scorer import Scorer
-from safelabs.runner import run_eval
+from safelabs.runner import PromptSelectionError, run_eval, select_prompts
 
 _RED="[91m"; _YELLOW="[93m"; _GREEN="[92m"; _CYAN="[96m"; _BOLD="[1m"; _RESET="[0m"
 _VERDICT_COLOUR = {VerdictLevel.VULNERABLE:_RED,VerdictLevel.FAIL:_YELLOW,VerdictLevel.UNCERTAIN:_CYAN,VerdictLevel.PASS:_GREEN}
@@ -25,6 +25,8 @@ def main(): """safelabs-eval — ASI-category red-teaming for AI agents."""
 @main.command()
 @click.option("--target","-t",required=True)
 @click.option("--category","-c",default="ASI01",show_default=True)
+@click.option("--prompt-id","prompt_ids",multiple=True,help="Run only this prompt ID (e.g. ASI01-018); repeatable, case-insensitive. Without an explicit --category the IDs may come from any category; with one, every ID must belong to it.")
+@click.option("--limit",default=None,type=click.IntRange(min=1),help="Run only the first N prompts (library order), applied after --category and --prompt-id.")
 @click.option("--timeout",default=30.0,show_default=True)
 @click.option("--output","-o",type=click.Choice(["text","json"]),default="text",show_default=True)
 @click.option("--auth-header",default=None)
@@ -35,7 +37,7 @@ def main(): """safelabs-eval — ASI-category red-teaming for AI agents."""
 @click.option("--include-responses",is_flag=True,default=False,help="Add each agent response to the JSON output (--output json). Responses to adversarial prompts may contain harmful content; do not commit or share results files that contain responses without reviewing them.")
 @click.option("--max-attempts",default=None,type=click.IntRange(min=1),help="Attempts per prompt for infrastructure errors; 1 disables retries.")
 @click.option("--retry-base-delay-s",default=None,type=click.FloatRange(min=0.0),help="First backoff delay in seconds (doubles each retry, with jitter).")
-def run(target,category,timeout,output,auth_header,retry_profile,no_echo_aware,include_responses,max_attempts,retry_base_delay_s):
+def run(target,category,prompt_ids,limit,timeout,output,auth_header,retry_profile,no_echo_aware,include_responses,max_attempts,retry_base_delay_s):
     """Red-team an agent endpoint with ASI-category prompts.
 
     Prompts run through safelabs.runner.run_eval(). An infrastructure error (rate limit,
@@ -47,8 +49,12 @@ def run(target,category,timeout,output,auth_header,retry_profile,no_echo_aware,i
       safelabs run --target http://localhost:8000/chat --category ASI01
       safelabs run --target http://localhost:8000/chat --category all --output json
       safelabs run --target http://localhost:8000/chat --category all --retry-profile benchmark
+      safelabs run --target http://localhost:8000/chat --prompt-id ASI01-018 --prompt-id ASI03-002
+      safelabs run --target http://localhost:8000/chat --category ASI01 --limit 3
     """
+    category_explicit = click.get_current_context().get_parameter_source("category") != click.core.ParameterSource.DEFAULT
     asyncio.run(_run_async(target,category,timeout,output,auth_header,
+                           prompt_ids=list(prompt_ids),limit=limit,category_explicit=category_explicit,
                            retry_profile=retry_profile,max_attempts=max_attempts,retry_base_delay_s=retry_base_delay_s,
                            echo_aware=not no_echo_aware,include_responses=include_responses))
 
@@ -69,16 +75,22 @@ def _result_row(rec,include_responses=False):
     if include_responses: row["response"] = rec.response
     return row
 
-async def _run_async(target,category,timeout,output,auth_header,retry_profile="default",max_attempts=None,retry_base_delay_s=None,echo_aware=True,include_responses=False):
+async def _run_async(target,category,timeout,output,auth_header,prompt_ids=None,limit=None,category_explicit=True,retry_profile="default",max_attempts=None,retry_base_delay_s=None,echo_aware=True,include_responses=False):
     from safelabs.agents.http_adapter import HttpAdapter
     headers = {"Authorization": auth_header} if auth_header else {}
     adapter = HttpAdapter(base_url=target, headers=headers, timeout=timeout)
-    library = get_library()
-    prompts = library.entries if category.lower()=="all" else library.by_category(PromptCategory(category.upper()))
+    # --prompt-id with the default --category may pick IDs from any category; an explicit --category restricts them.
+    all_categories = category.lower()=="all" or (bool(prompt_ids) and not category_explicit)
+    categories = None if all_categories else [category.upper()]
+    try:
+        prompts = select_prompts(categories, prompt_ids, limit)
+    except PromptSelectionError as exc:
+        click.echo(f"Error: {exc}", err=True); sys.exit(2)
     if not prompts: click.echo(f"No prompts for: {category}", err=True); sys.exit(1)
+    cat_label = "ALL" if all_categories else category.upper()
     if output=="text":
         click.echo(f"\n{_BOLD}safelabs-eval v{__version__}{_RESET}")
-        click.echo(f"Target  : {target}\nCategory: {category.upper()} ({len(prompts)} prompts)\n" + "─"*60)
+        click.echo(f"Target  : {target}\nCategory: {cat_label} ({len(prompts)} prompts)\n" + "─"*60)
 
     def on_start(entry):
         if output=="text":
@@ -104,7 +116,8 @@ async def _run_async(target,category,timeout,output,auth_header,retry_profile="d
 
     extra = {} if echo_aware else {"scorer": Scorer(echo_aware=False)}  # default Scorer() is echo-aware
     result = await run_eval(
-        adapter.execute, categories=None if category.lower()=="all" else [category.upper()],
+        adapter.execute, categories=categories,
+        prompt_ids=prompt_ids or None, limit=limit,
         retry_profile=retry_profile, max_attempts=max_attempts, base_delay_s=retry_base_delay_s,
         on_start=on_start, on_record=on_record, **extra,
     )

@@ -12,6 +12,7 @@ All notable changes to safelabs-eval are recorded here. The format follows Keep 
 
 - `--output json` now includes `indicators` and `echoed_indicators` for each scored result (#71).
 - `--include-responses` adds each agent response to the JSON output (off by default; responses to adversarial prompts can contain harmful content) (#71).
+- `--prompt-id` (repeatable) and `--limit` to run a single prompt or a subset; also available as `run_eval(prompt_ids=..., limit=...)` (#72).
 
 ### Changed
 
