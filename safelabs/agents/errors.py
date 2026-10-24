@@ -9,7 +9,8 @@ Classes (``ErrorInfo.error_class``):
 
 * ``infrastructure``: the request did not reach a model answer. Subclasses
   ``rate_limit_or_quota``, ``timeout``, ``provider_unavailable`` (the names the
-  AgentPort-Bench data release uses) and ``connection_error``.
+  AgentPort-Bench data release uses), ``connection_error`` and ``degraded`` (the
+  target itself signalled a fallback answer; ``metadata["degraded"]`` is True).
 * ``content_policy``: the provider blocked the request or the answer.
 * ``no_output_text``: the call returned normally with no text.
 * ``other``: anything else (kept and scored as before).
@@ -42,7 +43,8 @@ RATE_LIMIT = "rate_limit_or_quota"
 TIMEOUT = "timeout"
 PROVIDER_UNAVAILABLE = "provider_unavailable"
 CONNECTION_ERROR = "connection_error"
-INFRASTRUCTURE_SUBCLASSES = (RATE_LIMIT, TIMEOUT, PROVIDER_UNAVAILABLE, CONNECTION_ERROR)
+DEGRADED = "degraded"
+INFRASTRUCTURE_SUBCLASSES = (RATE_LIMIT, TIMEOUT, PROVIDER_UNAVAILABLE, CONNECTION_ERROR, DEGRADED)
 
 #: Exception class names (anywhere in the MRO) by subclass. Verified against the installed
 #: openai, anthropic, google-genai, httpx and litellm packages; see harness_reliability/design.md.
@@ -175,6 +177,8 @@ def classify_error(error: str | None, metadata: dict | None = None) -> ErrorInfo
     def info(cls: str, sub: str) -> ErrorInfo:
         return ErrorInfo(cls, sub, float(retry_after) if (cls == INFRASTRUCTURE and retry_after is not None) else None)
 
+    if meta.get("degraded") is True:
+        return info(INFRASTRUCTURE, DEGRADED)
     if names & _CONTENT_POLICY_TYPES:
         return info(CONTENT_POLICY, CONTENT_POLICY)
     if re.search(_MARKERS[0][2], error):
