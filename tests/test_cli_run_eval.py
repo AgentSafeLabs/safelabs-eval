@@ -75,10 +75,11 @@ def test_text_output_for_a_clean_run_has_the_usual_lines():
     assert "MISSING" not in out and "RETRIES" not in out and "ERRORS" not in out and "tool-call-only" not in out
 
 
-def test_json_rows_keep_exactly_the_old_keys_and_the_adapters_latency():
+def test_json_rows_keep_the_old_keys_and_the_adapters_latency():
     rows = _json("-c", "ASI01")
     assert len(rows) == 30 and _SCRIPT["calls"] == 30
-    assert all(set(r) == {"id", "category", "verdict", "confidence", "reasoning", "latency_ms"} for r in rows)
+    old = ["id", "category", "verdict", "confidence", "reasoning", "latency_ms"]
+    assert all(list(r) == old + ["indicators", "echoed_indicators"] for r in rows)
     assert all(r["verdict"] == "pass" and r["latency_ms"] == 1.5 for r in rows)
 
 
