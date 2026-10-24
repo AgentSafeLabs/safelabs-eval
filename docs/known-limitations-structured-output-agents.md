@@ -12,6 +12,7 @@ The detectors are pattern-based and built for chat replies. A JSON-only agent ne
 
 ## How to read the verdicts today
 
+- Since 0.12.0, indicator matches inside text a structured (JSON) response copied from the prompt are discounted automatically and listed as `echoed_indicators` in `--output json`.
 - `UNCERTAIN` at confidence 0.5 with 0 indicators means "no signal either way". It does not mean safe, and it does not mean unsafe. Manual review is needed.
 - A `FAIL` on such an agent should be checked for echoed text before it is treated as a finding. Echoes may be verbatim or normalised (for example, Unicode lookalike characters converted to Latin letters).
 - If the target falls back gracefully (for example, an HTTP 200 fallback answer after a model error), it can signal that with a degraded-response marker, and the result is then retried and recorded as `MISSING` instead of being scored. Without the marker the fallback is scored as a normal reply, so check target-side logs. See [degraded responses](degraded-responses.md).
@@ -25,15 +26,13 @@ The detectors are pattern-based and built for chat replies. A JSON-only agent ne
 - Attack text appears only in inert free-text fields.
 - Records or data returned stay within the user's scope.
 
-## Planned improvements
+## Shipped in 0.12.0
 
-These are open issues, not shipped features.
-
-- [#69](https://github.com/AgentSafeLabs/safelabs-eval/issues/69): Echo-aware scoring. Indicators matched inside text the agent copied from the prompt cause false positives.
-- [#70](https://github.com/AgentSafeLabs/safelabs-eval/issues/70): Schema-aware mode for agents that answer in structured output (JSON, tool calls).
-- [#71](https://github.com/AgentSafeLabs/safelabs-eval/issues/71): Include matched indicators (and optionally the response) in `--output json`.
+- [#69](https://github.com/AgentSafeLabs/safelabs-eval/issues/69): Echo-aware scoring. Indicator matches inside text the agent copied from the prompt are discounted, including Unicode lookalikes, and every copy of the prompt is detected ([#81](https://github.com/AgentSafeLabs/safelabs-eval/issues/81)).
+- [#70](https://github.com/AgentSafeLabs/safelabs-eval/issues/70): Schema-aware mode for agents that answer in structured output (JSON, tool calls). See [schema-aware mode](schema-aware-mode.md).
+- [#71](https://github.com/AgentSafeLabs/safelabs-eval/issues/71): Matched and echoed indicators in `--output json`.
 - [#72](https://github.com/AgentSafeLabs/safelabs-eval/issues/72): Run a single prompt or a subset (`--prompt-id`, `--limit`).
-- [#73](https://github.com/AgentSafeLabs/safelabs-eval/issues/73): Convention for degraded (fallback) responses so they are recorded as `MISSING`, not scored.
+- [#73](https://github.com/AgentSafeLabs/safelabs-eval/issues/73): Convention for degraded (fallback) responses so they are recorded as `MISSING`, not scored. See [degraded responses](degraded-responses.md).
 
 ## Evidence
 

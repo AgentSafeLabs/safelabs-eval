@@ -2,7 +2,9 @@
 
 All notable changes to safelabs-eval are recorded here. The format follows Keep a Changelog (https://keepachangelog.com/en/1.1.0/), and the project uses semantic versioning. Earlier versions are described on GitHub Releases: https://github.com/AgentSafeLabs/safelabs-eval/releases
 
-## Unreleased
+## 0.12.0 - 2026-10-24
+
+Scoring and CLI improvements from the ASI01 end-to-end pilot (Discussion #68, dataset 10.5281/zenodo.23623801). Echo-aware scoring is on by default and changes verdicts on structured (JSON) responses that copy the prompt; use `--no-echo-aware` to reproduce 0.11.x scores. On the frozen pilot data it removes the only false positive (ASI01-002: FAIL → UNCERTAIN) in all three runs. An opt-in schema-aware mode (`--output-schema`) gives structural verdicts for JSON-only agents, and a degraded-response convention records fallback answers as MISSING instead of scoring them.
 
 ### Fixed
 
