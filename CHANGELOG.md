@@ -4,6 +4,10 @@ All notable changes to safelabs-eval are recorded here. The format follows Keep 
 
 ## Unreleased
 
+### Fixed
+
+- Anthropic judge provider: compatibility with newer anthropic SDK versions where `messages.create` no longer exposes `temperature` (#76). The backend now sends `temperature=0` only when the installed `create()` accepts it; otherwise it omits it and logs a one-time warning, since judge sampling then follows the API default and labels may vary between runs. Behaviour on SDKs that still accept `temperature` is unchanged.
+
 ### Added
 
 - `--output json` now includes `indicators` and `echoed_indicators` for each scored result (#71).

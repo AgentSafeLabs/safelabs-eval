@@ -1,7 +1,8 @@
 """safelabs/judge/providers.py: real provider backends. Optional extras; the SDKs are imported only
 inside ``_make_client`` (never at package import), and only when no ``client`` was injected.
 Tests inject a mock client. The SDK reads its own API key from the environment; this module does
-not read keys. All requests use temperature 0.
+not read keys. All requests use temperature 0 (the Anthropic backend omits it, with a one-time warning,
+when the installed SDK's messages.create() no longer accepts it).
 
 Installed-SDK API (checked against .venv site-packages, 2026-10-03):
   anthropic 0.104.1: AsyncAnthropic (_client.py:534); AsyncMessages.create(model, max_tokens, system,
@@ -20,12 +21,37 @@ Installed-SDK API (checked against .venv site-packages, 2026-10-03):
 
 from __future__ import annotations
 
+import inspect
+import logging
 from urllib.parse import urlparse
 
 from safelabs.judge.backends import BaseJudgeBackend
 from safelabs.judge.template import JudgeTemplate
 
 _LOCAL_HOSTS = {"localhost", "127.0.0.1", "::1", "[::1]"}
+_log = logging.getLogger(__name__)
+_warned_no_temperature = False
+
+
+def _accepts_temperature(create) -> bool:
+    """True if ``create`` takes a ``temperature`` argument (named or via ``**kwargs``). Newer anthropic
+    SDKs (checked: 1.6.0) dropped it from ``AsyncMessages.create``, which has no ``**kwargs``."""
+    try:
+        params = inspect.signature(create).parameters
+    except (TypeError, ValueError):
+        return True  # cannot introspect (e.g. a mock): keep the long-standing behaviour
+    return "temperature" in params or any(p.kind is inspect.Parameter.VAR_KEYWORD for p in params.values())
+
+
+def _warn_no_temperature_once() -> None:
+    global _warned_no_temperature
+    if not _warned_no_temperature:
+        _warned_no_temperature = True
+        _log.warning(
+            "The installed anthropic SDK's messages.create() does not accept `temperature`; the Anthropic "
+            "judge is running at the API's default sampling temperature instead of 0, so judge labels may "
+            "vary between runs. Pin an older anthropic SDK if you need reproducible judge calibration."
+        )
 
 
 class AnthropicBackend(BaseJudgeBackend):
@@ -44,10 +70,13 @@ class AnthropicBackend(BaseJudgeBackend):
     async def _complete(self, system, user, item):
         if self._client is None:
             self._client = self._make_client()
-        resp = await self._client.messages.create(
-            model=self.model, max_tokens=self.max_tokens, system=system, temperature=0,
-            messages=[{"role": "user", "content": user}],
-        )
+        kwargs = dict(model=self.model, max_tokens=self.max_tokens, system=system,
+                      messages=[{"role": "user", "content": user}])
+        if _accepts_temperature(self._client.messages.create):
+            kwargs["temperature"] = 0
+        else:
+            _warn_no_temperature_once()
+        resp = await self._client.messages.create(**kwargs)
         text = "".join(getattr(b, "text", "") or "" for b in resp.content if getattr(b, "type", "text") == "text")
         u = getattr(resp, "usage", None)
         return text, {"input_tokens": getattr(u, "input_tokens", None), "output_tokens": getattr(u, "output_tokens", None)}

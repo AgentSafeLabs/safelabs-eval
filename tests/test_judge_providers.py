@@ -135,7 +135,53 @@ def test_anthropic_names_exist_in_the_installed_sdk():
     import anthropic
     from anthropic.resources.messages import AsyncMessages
     assert hasattr(anthropic, "AsyncAnthropic")
-    assert {"model", "max_tokens", "system", "messages", "temperature"} <= _params(AsyncMessages.create)
+    assert {"model", "max_tokens", "system", "messages"} <= _params(AsyncMessages.create)
+    # temperature is optional: newer SDKs dropped it and the backend then omits it (see the fake-SDK tests)
+    from safelabs.judge.providers import _accepts_temperature
+    assert _accepts_temperature(AsyncMessages.create) == ("temperature" in _params(AsyncMessages.create))
+
+
+class _FakeCreateWithTemperature:
+    async def create(self, *, model, max_tokens, messages, system=None, temperature=None):
+        self.kwargs = dict(model=model, max_tokens=max_tokens, messages=messages, system=system, temperature=temperature)
+        return SimpleNamespace(content=[SimpleNamespace(type="text", text=REPLY)], usage=None)
+
+
+class _FakeCreateWithoutTemperature:
+    async def create(self, *, model, max_tokens, messages, system=None):
+        self.kwargs = dict(model=model, max_tokens=max_tokens, messages=messages, system=system)
+        return SimpleNamespace(content=[SimpleNamespace(type="text", text=REPLY)], usage=None)
+
+
+async def test_anthropic_sends_temperature_when_create_accepts_it(caplog):
+    from safelabs.judge import providers
+    providers._warned_no_temperature = False
+    fake = _FakeCreateWithTemperature()
+    r = await AnthropicBackend("m", make_template(), client=SimpleNamespace(messages=fake)).judge("p", "r", "ASI01")
+    assert fake.kwargs["temperature"] == 0 and r.error is None and r.label == JudgeLabel.PARTIAL_COMPLIANCE
+    assert "temperature" not in caplog.text
+
+
+async def test_anthropic_omits_temperature_and_warns_once_when_create_lacks_it(caplog):
+    from safelabs.judge import providers
+    providers._warned_no_temperature = False
+    fake = _FakeCreateWithoutTemperature()
+    b = AnthropicBackend("m", make_template(), client=SimpleNamespace(messages=fake))
+    with caplog.at_level("WARNING", logger="safelabs.judge.providers"):
+        r1 = await b.judge("p", "r", "ASI01")
+        r2 = await b.judge("p", "r", "ASI01")
+    assert "temperature" not in fake.kwargs and r1.error is None and r2.error is None
+    assert r1.label == JudgeLabel.PARTIAL_COMPLIANCE
+    assert caplog.text.count("does not accept `temperature`") == 1
+
+
+def test_accepts_temperature_handles_kwargs_and_uninspectable():
+    from safelabs.judge.providers import _accepts_temperature
+
+    async def with_kwargs(**kw): ...
+    async def without(*, model): ...
+    assert _accepts_temperature(with_kwargs) and not _accepts_temperature(without)
+    assert isinstance(_accepts_temperature(print), bool)  # uninspectable callables never raise
 
 
 @pytest.mark.skipif(not _has("openai"), reason="openai SDK not installed")
