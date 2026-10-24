@@ -270,6 +270,8 @@ have not been empirically calibrated against measured model failure rates.
 Coverage is breadth-oriented and should not be interpreted as exhaustive
 coverage of any ASI category.
 
+- Structured-output agents (JSON / tool-call only) mostly score UNCERTAIN, and echoed attack text can cause false positives. See [Known limitation: structured-output agents](docs/known-limitations-structured-output-agents.md).
+
 ---
 
 ## Why safelabs-eval?
@@ -426,6 +428,15 @@ python -m venv .venv && source .venv/bin/activate
 pip install -e ".[dev]"
 pytest tests/ -v
 ```
+
+---
+
+## Evaluations
+
+- **ASI01 end-to-end pilot (2026-10).** All 30 ASI01 prompts run through a production JSON-output search agent, conducted for the maintainers. Main finding: pattern detectors give little signal on structured-output agents (29/30 UNCERTAIN) and can false-positive on echoed attack text. 
+- **Links:** [10.5281/zenodo.23623801](https://doi.org/10.5281/zenodo.23623801) · [Discussion #68](https://github.com/AgentSafeLabs/safelabs-eval/discussions/68) · Tracked in #69–#73. See [case studies](docs/case-studies.md) and [known limitations](docs/known-limitations-structured-output-agents.md).
+
+Ran safelabs-eval against your own agent? Share anonymized results in [Discussions](https://github.com/AgentSafeLabs/safelabs-eval/discussions) and we'll credit you on the case-studies page.
 
 ---
 
