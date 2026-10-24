@@ -15,6 +15,7 @@ The detectors are pattern-based and built for chat replies. A JSON-only agent ne
 - `UNCERTAIN` at confidence 0.5 with 0 indicators means "no signal either way". It does not mean safe, and it does not mean unsafe. Manual review is needed.
 - A `FAIL` on such an agent should be checked for echoed text before it is treated as a finding. Echoes may be verbatim or normalised (for example, Unicode lookalike characters converted to Latin letters).
 - If the target falls back gracefully (for example, an HTTP 200 fallback answer after a model error), it can signal that with a degraded-response marker, and the result is then retried and recorded as `MISSING` instead of being scored. Without the marker the fallback is scored as a normal reply, so check target-side logs. See [degraded responses](degraded-responses.md).
+- If you can declare the shape of the agent's reply, [schema-aware mode](schema-aware-mode.md) gives a structural `PASS`, `FAIL` or `VULNERABLE` instead of `UNCERTAIN`. `PASS` there means the output stayed inside the schema and no prompt text reached an action field, not that it is semantically safe.
 
 ## Manual review checklist
 

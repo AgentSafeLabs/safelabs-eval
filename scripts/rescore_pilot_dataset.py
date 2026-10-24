@@ -18,8 +18,11 @@ once in a bridge log (a retry), the last attempt is the one that was scored.
 
 No network calls and no agent or model calls: scoring only.
 
+With ``--output-schema PATH`` the echo-aware scoring is repeated in schema-aware mode (issue #70) and a
+third view lists every row's schema-aware verdict. The reproduction check is unaffected: it never uses a schema.
+
 Usage:
-    python scripts/rescore_pilot_dataset.py <dataset_dir> [--json-out PATH]
+    python scripts/rescore_pilot_dataset.py <dataset_dir> [--json-out PATH] [--output-schema PATH]
 """
 
 from __future__ import annotations
@@ -67,15 +70,18 @@ def load_run(data_dir: Path, log_name: str, result_name: str, prompts_by_text: d
     return scored, expected
 
 
-async def score_run(scored: dict[str, tuple[str, str]]) -> dict[str, dict]:
+async def score_run(scored: dict[str, tuple[str, str]], output_schema: Path | None = None) -> dict[str, dict]:
     eval_type = CATEGORY_EVAL_TYPE[CATEGORY]
     before_scorer, after_scorer = Scorer(echo_aware=False), Scorer()
+    schema_scorer = Scorer(output_schema=output_schema) if output_schema else None
     out = {}
     for pid in sorted(scored):
         prompt, response = scored[pid]
         before = await before_scorer.score(eval_type, prompt, response)
         after = await after_scorer.score(eval_type, prompt, response)
         out[pid] = {"before": before, "after": after}
+        if schema_scorer:
+            out[pid]["schema"] = await schema_scorer.score(eval_type, prompt, response)
     return out
 
 
@@ -114,9 +120,22 @@ def print_table(results: dict[str, dict]) -> None:
         print(f"Totals {label}: " + ", ".join(f"{v.upper()}={n}" for v, n in sorted(totals.items())))
 
 
+def print_schema_table(results: dict[str, dict]) -> None:
+    print("\nSchema-aware (after + schema):")
+    print("| id | after (verdict / conf) | schema-aware (verdict / conf) | schema indicators |")
+    print("|---|---|---|---|")
+    for pid, r in sorted(results.items()):
+        a, s = r["after"], r["schema"]
+        extra = [i for i in s.indicators if i not in a.indicators]
+        print(f"| {pid} | {a.verdict.value.upper()} / {a.confidence} | {s.verdict.value.upper()} / {s.confidence} | {'; '.join(extra) or '-'} |")
+    print("Totals schema-aware: " + ", ".join(f"{v.upper()}={n}" for v, n in sorted(Counter(r["schema"].verdict.value for r in results.values()).items())))
+
+
 def _row_json(r: dict) -> dict:
     out = {}
-    for label in ("before", "after"):
+    for label in ("before", "after", "schema"):
+        if label not in r:
+            continue
         s = r[label]
         out[label] = {**_brief(s), "indicators": s.indicators, "echoed": s.echoed}
     return out
@@ -126,6 +145,7 @@ def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("dataset_dir", type=Path)
     ap.add_argument("--json-out", type=Path, default=None, help="write full per-row results here (default: nothing written)")
+    ap.add_argument("--output-schema", type=Path, default=None, help="also score the 'after' column in schema-aware mode with this schema file")
     args = ap.parse_args(argv)
 
     data_dir = args.dataset_dir.expanduser() / "data"
@@ -135,7 +155,7 @@ def main(argv: list[str] | None = None) -> int:
 
     for name, log_name, result_name in RUNS:
         scored, expected = load_run(data_dir, log_name, result_name, prompts_by_text)
-        results = asyncio.run(score_run(scored))
+        results = asyncio.run(score_run(scored, args.output_schema))
         bad = mismatches(results, expected)
         total = len(expected)
         print(f"\n## {name}: reproduced {total - len(bad)}/{total}")
@@ -146,6 +166,8 @@ def main(argv: list[str] | None = None) -> int:
             print("  (no before/after table: the run did not reproduce)")
             continue
         print_table(results)
+        if args.output_schema:
+            print_schema_table(results)
         dump[name] = {pid: _row_json(r) for pid, r in results.items()}
 
     if args.json_out and dump:

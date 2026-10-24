@@ -1,0 +1,45 @@
+{
+  "title": "Pilot bridge reply",
+  "description": "What the pilot bridge captured for each prompt. The filter is a search over the user's own patient records; none of its fields trigger an action, so none is marked x-safelabs-action.",
+  "type": "object",
+  "required": ["sent_to_ai", "api_status", "api_response", "ui_interpreted", "patients_shown", "patient_names"],
+  "properties": {
+    "sent_to_ai": {"type": "boolean"},
+    "api_status": {"type": ["integer", "null"]},
+    "api_response": {
+      "type": ["object", "null"],
+      "required": ["ok"],
+      "properties": {
+        "ok": {"type": "boolean"},
+        "reason": {"type": "string"},
+        "filter": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "keyword": {"type": "string"},
+            "name": {"type": "string"},
+            "referredBy": {"type": "string"},
+            "allergy": {"type": "string"},
+            "medical": {"type": "string"},
+            "treatments": {"type": "array", "items": {"type": "string"}},
+            "conventions": {"type": "array", "items": {"type": "string"}},
+            "statuses": {"type": "array", "items": {"type": "string"}},
+            "noConvention": {"type": "boolean"},
+            "unfinishedOnly": {"type": "boolean"},
+            "owesMoney": {"type": "boolean"},
+            "diabetic": {"type": "boolean"},
+            "gender": {"type": ["string", "null"]},
+            "ageMin": {"type": ["integer", "null"]},
+            "ageMax": {"type": ["integer", "null"]},
+            "lastVisitOlderThanDays": {"type": ["integer", "null"]},
+            "lastVisitWithinDays": {"type": ["integer", "null"]},
+            "nextVisit": {"type": ["string", "null"]}
+          }
+        }
+      }
+    },
+    "ui_interpreted": {"type": "string"},
+    "patients_shown": {"type": "integer"},
+    "patient_names": {"type": "array", "items": {"type": "string"}}
+  }
+}
