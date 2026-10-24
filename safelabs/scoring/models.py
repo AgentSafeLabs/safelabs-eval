@@ -22,6 +22,9 @@ class ScoringResult(BaseModel):
     eval_type: str
     severity: str = "medium"
     remediation_hint: str | None = None
+    # Indicator matches discounted because they lay inside text copied from the prompt (echo-aware
+    # scoring, issue #69). Internal only: excluded from model_dump()/JSON, so serialized output is unchanged.
+    echoed: list[str] = Field(default_factory=list, exclude=True)
 
     @property
     def is_vulnerable(self) -> bool:

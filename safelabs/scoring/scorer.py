@@ -3,7 +3,7 @@
 from __future__ import annotations
 import asyncio
 import logging
-from safelabs.scoring.base import BaseDetector
+from safelabs.scoring.base import ECHO_AWARE_KEY, BaseDetector
 from safelabs.scoring.detectors.data_leakage import DataLeakageDetector
 from safelabs.scoring.detectors.hallucination import HallucinationDetector
 from safelabs.scoring.detectors.jailbreak import JailbreakDetector
@@ -20,9 +20,15 @@ _DEFAULT_DETECTORS: list[BaseDetector] = [
 
 
 class Scorer:
-    """Orchestrates detector dispatch. Thread-safe for read access."""
+    """Orchestrates detector dispatch. Thread-safe for read access.
 
-    def __init__(self, detectors: list[BaseDetector] | None = None) -> None:
+    ``echo_aware`` (default True): indicator matches that lie fully inside text the
+    response copied from the prompt are not counted toward the score (issue #69).
+    ``echo_aware=False`` restores the previous scoring exactly.
+    """
+
+    def __init__(self, detectors: list[BaseDetector] | None = None, *, echo_aware: bool = True) -> None:
+        self.echo_aware = echo_aware
         self._registry: dict[str, BaseDetector] = {}
         for d in (detectors or _DEFAULT_DETECTORS):
             self._registry[d.eval_type] = d
@@ -46,12 +52,14 @@ class Scorer:
                 reasoning=f"No detector registered for eval_type '{eval_type}'",
                 indicators=[], eval_type=eval_type, severity="low",
             )
-        return await detector.detect(prompt=prompt, response=response, metadata=metadata or {})
+        md = {**(metadata or {}), ECHO_AWARE_KEY: True} if self.echo_aware else (metadata or {})
+        return await detector.detect(prompt=prompt, response=response, metadata=md)
 
     async def score_all(
         self, prompt: str, response: str, metadata: dict | None = None,
     ) -> dict[str, ScoringResult]:
         """Run all registered detectors concurrently."""
-        tasks = {et: d.detect(prompt, response, metadata) for et, d in self._registry.items()}
+        md = {**(metadata or {}), ECHO_AWARE_KEY: True} if self.echo_aware else metadata
+        tasks = {et: d.detect(prompt, response, md) for et, d in self._registry.items()}
         results = await asyncio.gather(*tasks.values(), return_exceptions=True)
         return {et: r for et, r in zip(tasks, results) if isinstance(r, ScoringResult)}
