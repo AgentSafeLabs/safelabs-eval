@@ -277,6 +277,47 @@ class EvalResult(BaseModel):
         print()
 
 
+class PromptSelectionError(ValueError):
+    """Raised before any prompt is sent when ``prompt_ids`` / ``limit`` cannot be honoured."""
+
+
+def select_prompts(
+    categories: list[str] | None = None,
+    prompt_ids: list[str] | None = None,
+    limit: int | None = None,
+) -> list[PromptEntry]:
+    """Build the list of prompts ``run_eval`` will run.
+
+    Prompts come from *categories* (``None`` = all, in category order). *prompt_ids* keeps only those
+    IDs (case-insensitive, duplicates ignored, library order); every ID must exist and belong to the
+    selected categories. *limit* then keeps the first N. Raises :class:`PromptSelectionError`.
+    """
+    library = get_library()
+    cats = [PromptCategory(c.upper()) for c in categories] if categories else list(PromptCategory)
+    prompts: list[PromptEntry] = []
+    for cat in cats:
+        prompts.extend(library.by_category(cat))
+
+    if prompt_ids:
+        wanted = {i.strip().upper() for i in prompt_ids}
+        known = {e.id: e for e in library.entries}
+        unknown = sorted(wanted - known.keys())
+        if unknown:
+            raise PromptSelectionError(f"Unknown prompt ID(s): {', '.join(unknown)}")
+        in_scope = {e.id for e in prompts}
+        outside = sorted(wanted - in_scope)
+        if outside:
+            raise PromptSelectionError(
+                f"Prompt ID(s) not in the selected categories ({', '.join(c.value for c in cats)}): {', '.join(outside)}")
+        prompts = [e for e in prompts if e.id in wanted]
+
+    if limit is not None:
+        if limit < 1:
+            raise PromptSelectionError("limit must be at least 1")
+        prompts = prompts[:limit]
+    return prompts
+
+
 async def run_eval(
     agent_fn: AgentFn,
     categories: list[str] | None = None,
@@ -291,6 +332,8 @@ async def run_eval(
     jitter_fn: Callable[[], float] | None = None,
     on_start: Callable[[PromptEntry], None] | None = None,
     on_record: Callable[[EvalRecord], None] | None = None,
+    prompt_ids: list[str] | None = None,
+    limit: int | None = None,
 ) -> EvalResult:
     """
     Run the ASI eval suite against *agent_fn*.
@@ -318,6 +361,13 @@ async def run_eval(
         Optional progress callbacks: ``on_start(entry)`` before a prompt's first attempt and
         ``on_record(record)`` once its :class:`EvalRecord` is final (scored or missing). They let a
         command line show results as they arrive; they never change the result.
+    prompt_ids:
+        Optional prompt IDs (e.g. ``["ASI01-018"]``, case-insensitive). Only these prompts run, in
+        library order, duplicates ignored. Each must exist and belong to *categories* (all
+        categories when ``None``); otherwise :class:`PromptSelectionError` is raised before
+        anything is sent.
+    limit:
+        Optional maximum number of prompts (>= 1), applied last: the first N in run order.
 
     Returns
     -------
@@ -330,7 +380,7 @@ async def run_eval(
         retry_profile, max_attempts=max_attempts, base_delay_s=base_delay_s,
         max_delay_s=max_delay_s, max_retry_after_s=max_retry_after_s,
     )
-    limit   = max(1, int(retry["max_attempts"]))
+    max_tries = max(1, int(retry["max_attempts"]))
     sleeper = sleep or asyncio.sleep
     jitter  = jitter_fn or random.random
 
@@ -340,9 +390,7 @@ async def run_eval(
     else:
         cats = list(PromptCategory)
 
-    prompts: list[PromptEntry] = []
-    for cat in cats:
-        prompts.extend(library.by_category(cat))
+    prompts = select_prompts(categories, prompt_ids, limit)
 
     records: list[EvalRecord] = []
 
@@ -375,7 +423,7 @@ async def run_eval(
             info: ErrorInfo | None = classify_error(error_msg, meta)
             if info is not None:
                 attempt_errors.append(info.error_subclass)
-            if info is None or not info.is_infrastructure or attempts >= limit:
+            if info is None or not info.is_infrastructure or attempts >= max_tries:
                 break
             await sleeper(retry_delay(
                 attempts, info, base_delay_s=retry["base_delay_s"], max_delay_s=retry["max_delay_s"],
