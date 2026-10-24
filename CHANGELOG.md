@@ -10,6 +10,7 @@ All notable changes to safelabs-eval are recorded here. The format follows Keep 
 
 ### Added
 
+- Schema-aware verdict mode for structured-output agents: `--output-schema` (a JSON Schema subset with `x-safelabs-action` fields) and `--system-prompt-file` give structural PASS/FAIL/VULNERABLE verdicts instead of UNCERTAIN (#70).
 - Degraded-response convention: targets can signal a fallback answer with the `X-SafeLabs-Degraded` header or a `safelabs_degraded` JSON field, and adapters with `AgentResponse.degraded`; such responses are retried and then recorded as MISSING instead of being scored (#73).
 - `--output json` now includes `indicators` and `echoed_indicators` for each scored result (#71).
 - `--include-responses` adds each agent response to the JSON output (off by default; responses to adversarial prompts can contain harmful content) (#71).

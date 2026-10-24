@@ -5,6 +5,7 @@ import asyncio
 import json
 import logging
 import sys
+from pathlib import Path
 import click
 from safelabs import __version__
 
@@ -12,6 +13,7 @@ logger = logging.getLogger(__name__)
 from safelabs.prompts.loader import get_library
 from safelabs.prompts.schemas import PromptCategory
 from safelabs.scoring.models import VerdictLevel
+from safelabs.scoring.schema_mode import SchemaModeError
 from safelabs.scoring.scorer import Scorer
 from safelabs.runner import PromptSelectionError, run_eval, select_prompts
 
@@ -34,10 +36,12 @@ def main(): """safelabs-eval — ASI-category red-teaming for AI agents."""
               help="Retries for infrastructure errors (rate limit, timeout, outage). default: 3 attempts, 1 s base delay; "
                    "benchmark: 6 attempts, 2 s. The flags below override the profile.")
 @click.option("--no-echo-aware",is_flag=True,default=False,help="Count indicator matches even inside text the agent copied from the prompt (the scoring used before echo-aware discounting).")
+@click.option("--output-schema",default=None,type=click.Path(dir_okay=False),help="JSON file declaring the shape of a structured-output agent's reply (a JSON Schema subset with x-safelabs-action fields). Turns on schema-aware verdicts; see docs/schema-aware-mode.md.")
+@click.option("--system-prompt-file",default=None,type=click.Path(dir_okay=False),help="Text file with the agent's system prompt; with --output-schema, a response that repeats it is VULNERABLE.")
 @click.option("--include-responses",is_flag=True,default=False,help="Add each agent response to the JSON output (--output json). Responses to adversarial prompts may contain harmful content; do not commit or share results files that contain responses without reviewing them.")
 @click.option("--max-attempts",default=None,type=click.IntRange(min=1),help="Attempts per prompt for infrastructure errors; 1 disables retries.")
 @click.option("--retry-base-delay-s",default=None,type=click.FloatRange(min=0.0),help="First backoff delay in seconds (doubles each retry, with jitter).")
-def run(target,category,prompt_ids,limit,timeout,output,auth_header,retry_profile,no_echo_aware,include_responses,max_attempts,retry_base_delay_s):
+def run(target,category,prompt_ids,limit,timeout,output,auth_header,retry_profile,no_echo_aware,output_schema,system_prompt_file,include_responses,max_attempts,retry_base_delay_s):
     """Red-team an agent endpoint with ASI-category prompts.
 
     Prompts run through safelabs.runner.run_eval(). An infrastructure error (rate limit,
@@ -56,7 +60,8 @@ def run(target,category,prompt_ids,limit,timeout,output,auth_header,retry_profil
     asyncio.run(_run_async(target,category,timeout,output,auth_header,
                            prompt_ids=list(prompt_ids),limit=limit,category_explicit=category_explicit,
                            retry_profile=retry_profile,max_attempts=max_attempts,retry_base_delay_s=retry_base_delay_s,
-                           echo_aware=not no_echo_aware,include_responses=include_responses))
+                           echo_aware=not no_echo_aware,include_responses=include_responses,
+                           output_schema=output_schema,system_prompt_file=system_prompt_file))
 
 def _result_row(rec,include_responses=False):
     """One entry of the CLI's results list for an EvalRecord. Normal scored rows and unscored error rows keep the
@@ -75,7 +80,18 @@ def _result_row(rec,include_responses=False):
     if include_responses: row["response"] = rec.response
     return row
 
-async def _run_async(target,category,timeout,output,auth_header,prompt_ids=None,limit=None,category_explicit=True,retry_profile="default",max_attempts=None,retry_base_delay_s=None,echo_aware=True,include_responses=False):
+async def _run_async(target,category,timeout,output,auth_header,prompt_ids=None,limit=None,category_explicit=True,retry_profile="default",max_attempts=None,retry_base_delay_s=None,echo_aware=True,include_responses=False,output_schema=None,system_prompt_file=None):
+    scorer = None
+    if output_schema or system_prompt_file:
+        try:
+            if system_prompt_file and not output_schema: raise SchemaModeError("--system-prompt-file requires --output-schema")
+            system_prompt = None
+            if system_prompt_file:
+                try: system_prompt = Path(system_prompt_file).read_text(encoding="utf-8-sig")
+                except OSError as exc: raise SchemaModeError(f"cannot read system prompt file {system_prompt_file}: {exc.strerror or exc}") from exc
+            scorer = Scorer(echo_aware=echo_aware,output_schema=output_schema,system_prompt=system_prompt)
+        except SchemaModeError as exc:
+            click.echo(f"Error: {exc}", err=True); sys.exit(2)
     from safelabs.agents.http_adapter import HttpAdapter
     headers = {"Authorization": auth_header} if auth_header else {}
     adapter = HttpAdapter(base_url=target, headers=headers, timeout=timeout)
@@ -114,7 +130,8 @@ async def _run_async(target,category,timeout,output,auth_header,prompt_ids=None,
             click.echo(f"Reason : {s.reasoning}")
             if s.remediation_hint: click.echo(f"Fix    : {s.remediation_hint}")
 
-    extra = {} if echo_aware else {"scorer": Scorer(echo_aware=False)}  # default Scorer() is echo-aware
+    if scorer is None and not echo_aware: scorer = Scorer(echo_aware=False)  # default Scorer() is echo-aware
+    extra = {} if scorer is None else {"scorer": scorer}
     result = await run_eval(
         adapter.execute, categories=categories,
         prompt_ids=prompt_ids or None, limit=limit,

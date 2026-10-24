@@ -40,6 +40,7 @@ import random
 import time
 from collections import Counter
 from collections.abc import Awaitable, Callable
+from pathlib import Path
 from typing import Literal
 
 from pydantic import BaseModel, Field, model_validator
@@ -50,6 +51,7 @@ from safelabs.agents.schemas import AgentResponse
 from safelabs.prompts.loader import get_library
 from safelabs.prompts.schemas import PromptCategory, PromptEntry
 from safelabs.scoring.models import ScoringResult, VerdictLevel
+from safelabs.scoring.schema_mode import OutputSchema
 from safelabs.scoring.scorer import Scorer
 
 logger = logging.getLogger(__name__)
@@ -339,6 +341,8 @@ async def run_eval(
     on_record: Callable[[EvalRecord], None] | None = None,
     prompt_ids: list[str] | None = None,
     limit: int | None = None,
+    output_schema: "OutputSchema | dict | str | Path | None" = None,
+    system_prompt: str | None = None,
 ) -> EvalResult:
     """
     Run the ASI eval suite against *agent_fn*.
@@ -373,6 +377,11 @@ async def run_eval(
         anything is sent.
     limit:
         Optional maximum number of prompts (>= 1), applied last: the first N in run order.
+    output_schema, system_prompt:
+        Opt-in schema-aware verdicts for structured-output agents (issue #70); see
+        :mod:`safelabs.scoring.schema_mode`. A path, dict or OutputSchema, and the agent's system
+        prompt text. Both ``None`` (default) leaves scoring exactly as before. They configure the
+        default Scorer, so passing them together with *scorer* raises ValueError: put them on that Scorer.
 
     Returns
     -------
@@ -380,7 +389,9 @@ async def run_eval(
         Aggregated result with one :class:`EvalRecord` per prompt.
     """
     library = get_library()
-    scorer  = scorer or Scorer()
+    if (output_schema is not None or system_prompt is not None) and scorer is not None:
+        raise ValueError("pass output_schema/system_prompt to the Scorer you supply, not to run_eval")
+    scorer  = scorer or Scorer(output_schema=output_schema, system_prompt=system_prompt)
     retry   = resolve_retry_settings(
         retry_profile, max_attempts=max_attempts, base_delay_s=base_delay_s,
         max_delay_s=max_delay_s, max_retry_after_s=max_retry_after_s,
