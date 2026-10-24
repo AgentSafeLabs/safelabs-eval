@@ -23,7 +23,9 @@ classifier the AgentPort-Bench harness uses) is retried with exponential backoff
 flags such as ``max_attempts`` override the profile; ``Retry-After`` is honoured). If it still
 fails, the record is ``status="missing_infrastructure"`` with no scoring result, and it is
 excluded from ``total``, ``counts``, ``passed`` / ``failed`` / ``vulnerable`` and the report
-(which lists the missing count and says so). Content-policy, no-output-text and other failures
+(which lists the missing count and says so). A response flagged ``AgentResponse.degraded`` (a
+fallback answer the target itself reports) takes the same path with ``error_subclass="degraded"``
+and is never scored. Content-policy, no-output-text and other failures
 are not retried and are scored as before. ``agent_fn`` may return a plain string (as before) or a
 :class:`safelabs.agents.schemas.AgentResponse`, which lets the runner see ``error``, its
 metadata and ``tool_calls`` (for example ``run_eval(adapter.execute)``).
@@ -76,6 +78,9 @@ MISSING_EXCLUDED_NOTE = (
     "missing_infrastructure trials (infrastructure errors that persisted after every retry) have no verdict "
     "and are excluded from every aggregate: counts, totals and finding lists use scored trials only."
 )
+
+
+DEGRADED_ERROR = "degraded response: the target signalled a fallback answer instead of a model answer"
 
 
 async def _invoke(agent_fn: AgentFn, prompt: str) -> tuple[object, float]:
@@ -413,6 +418,9 @@ async def run_eval(
                 if isinstance(raw, AgentResponse):
                     response_text, error_msg, meta, tool_calls = raw.output, raw.error, raw.metadata, raw.tool_calls
                     latency_ms = raw.latency_ms or latency_ms        # the adapter's own timing when it reports one
+                    if raw.degraded:                                 # a fallback answer: handled like an infrastructure error
+                        error_msg = raw.error or DEGRADED_ERROR
+                        meta = {**(meta or {}), "degraded": True}
                 else:
                     response_text = str(raw)
             except Exception as exc:  # noqa: BLE001

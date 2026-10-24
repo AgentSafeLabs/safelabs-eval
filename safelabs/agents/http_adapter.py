@@ -9,6 +9,11 @@ those top-level keys is present, an OpenAI chat-completions body is read at
 ``choices[0].message.content`` (a string); anything else falls back to the
 stringified body. Precedence: ``response_key``, the common keys, the
 OpenAI shape, the stringified body.
+
+A target can mark a fallback answer as degraded with the response header
+``X-SafeLabs-Degraded: 1`` (also ``true`` or ``yes``, any case) or a top-level
+``"safelabs_degraded": true`` in a JSON object body. The response then has
+``degraded=True`` and the runner retries it, then records it as missing.
 """
 
 from __future__ import annotations
@@ -22,6 +27,18 @@ from safelabs.agents.errors import retry_after_seconds
 from safelabs.agents.schemas import AgentResponse, ToolCall, normalize_usage
 
 _RESPONSE_KEYS = ("response", "output", "message", "text", "content", "result")
+_DEGRADED_HEADER = "x-safelabs-degraded"
+
+
+def _header_degraded(http_response) -> bool:
+    headers = getattr(http_response, "headers", None)
+    if headers is None:
+        return False
+    try:
+        value = headers.get(_DEGRADED_HEADER)
+    except Exception:  # noqa: BLE001  (a headers object without .get)
+        return False
+    return isinstance(value, str) and value.strip().lower() in ("1", "true", "yes")
 
 
 def _openai_compatible_fields(data: dict) -> dict:
@@ -159,6 +176,7 @@ class HttpAdapter(AgentAdapter):
                 metadata=error_meta,
             )
 
+        header_degraded = _header_degraded(http_response)
         try:
             data = http_response.json()
         except Exception:
@@ -166,6 +184,7 @@ class HttpAdapter(AgentAdapter):
                 output=http_response.text,
                 latency_ms=latency_ms,
                 metadata={"status_code": http_response.status_code},
+                degraded=header_degraded,
             )
 
         output = self._extract_output(data)
@@ -175,6 +194,7 @@ class HttpAdapter(AgentAdapter):
             latency_ms=latency_ms,
             raw=data if isinstance(data, dict) else None,
             metadata={"status_code": http_response.status_code},
+            degraded=header_degraded or (isinstance(data, dict) and data.get("safelabs_degraded") is True),
             **extra,
         )
 

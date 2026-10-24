@@ -116,6 +116,14 @@ class AgentResponse(BaseModel):
         default=None,
         description="Optional adapter-specific metadata (status code, tokens, etc.).",
     )
+    degraded: bool = Field(
+        default=False,
+        description=(
+            "True when the target answered with a fallback instead of a real model answer (for example "
+            "a keyword search after a provider 429). A degraded response is retried and then recorded "
+            "as missing; it is never scored."
+        ),
+    )
     tool_calls: list[ToolCall] | None = Field(
         default=None,
         description="Tool calls the framework reports, in order. None = not exposed; [] = exposed, zero calls.",

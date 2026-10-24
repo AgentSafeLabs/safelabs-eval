@@ -36,8 +36,9 @@ def test_new_fields_default_to_none():
 def test_old_construction_and_dump_unchanged():
     r = AgentResponse(output="hello", latency_ms=10.0)
     assert r.succeeded
-    assert set(r.model_dump(exclude_none=True)) == {"output", "latency_ms"}
-    assert set(AgentResponse.model_fields) == _OLD_KEYS | _NEW_KEYS
+    assert set(r.model_dump(exclude_none=True)) == {"output", "latency_ms", "degraded"}   # degraded defaults to False (#73)
+    assert r.degraded is False
+    assert set(AgentResponse.model_fields) == _OLD_KEYS | _NEW_KEYS | {"degraded"}
 
 
 def test_old_json_still_loads():
