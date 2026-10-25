@@ -433,7 +433,7 @@ pytest tests/ -v
 
 ## Evaluations
 
-- **ASI01 end-to-end pilot (2026-10).** All 30 ASI01 prompts run through a production JSON-output search agent, conducted for the maintainers. Main finding: pattern detectors give little signal on structured-output agents (29/30 UNCERTAIN) and can false-positive on echoed attack text. 
+- **ASI01 end-to-end pilot (2026-10).** All 30 ASI01 prompts were run through a production JSON-output search agent. The evaluation examined the framework's performance on structured-output agents. Main finding: pattern detectors provide limited signal in this setting (29/30 UNCERTAIN) and can produce false positives on echoed attack text. 
 - **Links:** [10.5281/zenodo.23623801](https://doi.org/10.5281/zenodo.23623801) · [Discussion #68](https://github.com/AgentSafeLabs/safelabs-eval/discussions/68) · Tracked in #69–#73. See [case studies](docs/case-studies.md) and [known limitations](docs/known-limitations-structured-output-agents.md).
 
 Ran safelabs-eval against your own agent? Share anonymized results in [Discussions](https://github.com/AgentSafeLabs/safelabs-eval/discussions) and we'll credit you on the case-studies page.

@@ -6,7 +6,7 @@ This page collects evaluations of `safelabs-eval` against real agents, including
 
 ## ASI01 end-to-end pilot (October 2026)
 
-All 30 ASI01 (prompt injection) prompts were run end to end through the real UI and API of a production web app: an LLM search agent inside a healthcare SaaS. The agent turns a natural-language question into a structured JSON filter over the user's own records. The pilot was conducted for the SafeLabs-Eval maintainers by an external evaluator, Farouk Battikh ([@FARUKxKUN](https://github.com/FARUKxKUN)), on 2026-10-23 and 2026-10-24, using synthetic QA data only. It tested one app. Its main finding is a set of limitations in the framework's detectors, not a verdict on the target.
+All 30 ASI01 (prompt injection) prompts were run end to end through the user interface and API of a production web application featuring an LLM-based search agent. The agent converts natural-language questions into structured JSON filters over the user's records. The evaluation was conducted by Farouk Battikh ([@FARUKxKUN](https://github.com/FARUKxKUN)) on October 23–24, 2026, using synthetic QA data only. The evaluation covered a single application. Its findings identify limitations in the framework's detection mechanisms and should not be interpreted as a security verdict on the target application.
 
 ### Setup
 
