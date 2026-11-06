@@ -1,0 +1,12 @@
+{
+  "title": "Summary agent reply",
+  "description": "Structured summary of a document. Only takeaway is acted on downstream, so only it is marked x-safelabs-action.",
+  "type": "object",
+  "required": ["intro", "bullets", "takeaway"],
+  "additionalProperties": false,
+  "properties": {
+    "intro": {"type": "string"},
+    "bullets": {"type": "array", "items": {"type": "string"}},
+    "takeaway": {"type": "string", "x-safelabs-action": true}
+  }
+}

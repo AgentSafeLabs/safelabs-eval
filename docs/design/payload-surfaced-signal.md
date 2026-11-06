@@ -75,7 +75,7 @@ Controls: `run_eval(payload_warnings=True, payload_min_chars=24)`; CLI `--no-pay
 
 - With a schema, only strings under declared properties or `items` are checked. A copy of the prompt in an undeclared field is not reported by this warning (a closed schema, `additionalProperties: false`, already reports such a field as a `schema_violation`; an open one does not). Without a schema, every string in the JSON object or array is checked. So the same response can warn without a schema and not warn with one. This is pinned by `tests/test_payload_surfaced_followup.py`.
 - Only JSON object or array responses are checked; prose replies are not.
-- The warning does not know which field triggers an action. Declare the action-like field in the schema (`x-safelabs-action: true`, documented in #91): the existing `action_field_echo` check then gives a verdict for it, which this warning deliberately does not.
+- The warning does not know which field triggers an action. Declare the action-like field in the schema (`x-safelabs-action: true`, documented in #91; see [schema-aware mode for summary agents](../schema-mode-summary-agents.md)): the existing `action_field_echo` check then gives a verdict for it, which this warning deliberately does not.
 - Only verbatim runs (after normalization) count; a paraphrase of the payload does not.
 - The thresholds are sanity-checked on a small sample, not validated (see Calibration status).
 
