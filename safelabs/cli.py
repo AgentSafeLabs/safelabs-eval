@@ -13,6 +13,7 @@ logger = logging.getLogger(__name__)
 from safelabs.prompts.loader import get_library
 from safelabs.prompts.schemas import PromptCategory
 from safelabs.scoring.models import VerdictLevel
+from safelabs.scoring.payload_surfaced import MIN_SURFACED_CHARS, payload_surfaced_warning
 from safelabs.scoring.schema_mode import SchemaModeError
 from safelabs.scoring.scorer import Scorer
 from safelabs.runner import PromptSelectionError, run_eval, select_prompts
@@ -39,9 +40,11 @@ def main(): """safelabs-eval — ASI-category red-teaming for AI agents."""
 @click.option("--output-schema",default=None,type=click.Path(dir_okay=False),help="JSON file declaring the shape of a structured-output agent's reply (a JSON Schema subset with x-safelabs-action fields). Turns on schema-aware verdicts; see docs/schema-aware-mode.md.")
 @click.option("--system-prompt-file",default=None,type=click.Path(dir_okay=False),help="Text file with the agent's system prompt; with --output-schema, a response that repeats it is VULNERABLE.")
 @click.option("--include-responses",is_flag=True,default=False,help="Add each agent response to the JSON output (--output json). Responses to adversarial prompts may contain harmful content; do not commit or share results files that contain responses without reviewing them.")
+@click.option("--no-payload-warnings",is_flag=True,default=False,help="Do not report the PAYLOAD_SURFACED warning (a long span of the prompt appearing in a string field of a JSON response). The warning is informational and never changes a verdict.")
+@click.option("--payload-min-chars",default=MIN_SURFACED_CHARS,show_default=True,type=click.IntRange(min=1),help="Minimum length, in normalized characters, of a prompt span that triggers PAYLOAD_SURFACED.")
 @click.option("--max-attempts",default=None,type=click.IntRange(min=1),help="Attempts per prompt for infrastructure errors; 1 disables retries.")
 @click.option("--retry-base-delay-s",default=None,type=click.FloatRange(min=0.0),help="First backoff delay in seconds (doubles each retry, with jitter).")
-def run(target,category,prompt_ids,limit,timeout,output,auth_header,retry_profile,no_echo_aware,output_schema,system_prompt_file,include_responses,max_attempts,retry_base_delay_s):
+def run(target,category,prompt_ids,limit,timeout,output,auth_header,retry_profile,no_echo_aware,output_schema,system_prompt_file,include_responses,no_payload_warnings,payload_min_chars,max_attempts,retry_base_delay_s):
     """Red-team an agent endpoint with ASI-category prompts.
 
     Prompts run through safelabs.runner.run_eval(). An infrastructure error (rate limit,
@@ -61,9 +64,10 @@ def run(target,category,prompt_ids,limit,timeout,output,auth_header,retry_profil
                            prompt_ids=list(prompt_ids),limit=limit,category_explicit=category_explicit,
                            retry_profile=retry_profile,max_attempts=max_attempts,retry_base_delay_s=retry_base_delay_s,
                            echo_aware=not no_echo_aware,include_responses=include_responses,
-                           output_schema=output_schema,system_prompt_file=system_prompt_file))
+                           output_schema=output_schema,system_prompt_file=system_prompt_file,
+                           payload_warnings=not no_payload_warnings,payload_min_chars=payload_min_chars))
 
-def _result_row(rec,include_responses=False):
+def _result_row(rec,include_responses=False,schema=None,payload_min_chars=MIN_SURFACED_CHARS):
     """One entry of the CLI's results list for an EvalRecord. Normal scored rows and unscored error rows keep the
     shape they always had; a missing row and the rare retried or tool-call-only row add keys."""
     if rec.is_missing:
@@ -77,10 +81,16 @@ def _result_row(rec,include_responses=False):
     if rec.attempts and rec.attempts > 1: row["attempts"] = rec.attempts
     row["indicators"] = list(s.indicators)
     row["echoed_indicators"] = list(s.echoed)
+    if rec.warnings:
+        row["warnings"] = rec.warnings
+        if include_responses:  # excerpts copy attacker text, so they are added only here and never stored on the record
+            w = payload_surfaced_warning(rec.prompt,rec.response,schema,min_chars=payload_min_chars,include_excerpt=True)
+            if w:
+                row["warnings"] = [w]
     if include_responses: row["response"] = rec.response
     return row
 
-async def _run_async(target,category,timeout,output,auth_header,prompt_ids=None,limit=None,category_explicit=True,retry_profile="default",max_attempts=None,retry_base_delay_s=None,echo_aware=True,include_responses=False,output_schema=None,system_prompt_file=None):
+async def _run_async(target,category,timeout,output,auth_header,prompt_ids=None,limit=None,category_explicit=True,retry_profile="default",max_attempts=None,retry_base_delay_s=None,echo_aware=True,include_responses=False,output_schema=None,system_prompt_file=None,payload_warnings=True,payload_min_chars=MIN_SURFACED_CHARS):
     scorer = None
     if output_schema or system_prompt_file:
         try:
@@ -129,6 +139,8 @@ async def _run_async(target,category,timeout,output,auth_header,prompt_ids=None,
             click.echo(f"Verdict: {c}{s.verdict.value.upper()}{_RESET}  (confidence: {s.confidence:.0%}){flag}")
             click.echo(f"Reason : {s.reasoning}")
             if s.remediation_hint: click.echo(f"Fix    : {s.remediation_hint}")
+            for w in rec.warnings:
+                click.echo(f"  {_YELLOW}Warning{_RESET}: {w['code']} in {', '.join(f['path'] for f in w['fields'])} (informational; verdict unchanged)")
 
     if scorer is None and not echo_aware: scorer = Scorer(echo_aware=False)  # default Scorer() is echo-aware
     extra = {} if scorer is None else {"scorer": scorer}
@@ -136,11 +148,23 @@ async def _run_async(target,category,timeout,output,auth_header,prompt_ids=None,
         adapter.execute, categories=categories,
         prompt_ids=prompt_ids or None, limit=limit,
         retry_profile=retry_profile, max_attempts=max_attempts, base_delay_s=retry_base_delay_s,
-        on_start=on_start, on_record=on_record, **extra,
+        on_start=on_start, on_record=on_record,
+        payload_warnings=payload_warnings, payload_min_chars=payload_min_chars, **extra,
     )
-    results_out = [_result_row(rec,include_responses) for rec in result.records]
+    schema = scorer.output_schema if scorer is not None else None
+    results_out = [_result_row(rec,include_responses,schema,payload_min_chars) for rec in result.records]
     if output=="text": _summary(results_out)
-    else: click.echo(json.dumps({"results":results_out},indent=2))
+    else:
+        doc = {"results":results_out}
+        counts = _warning_counts(results_out)
+        if counts:
+            doc["summary"] = {"warnings":counts}  # only when a warning exists, so other output is unchanged
+        click.echo(json.dumps(doc,indent=2))
+
+def _warning_counts(results):
+    """Number of result rows carrying each warning code."""
+    from collections import Counter
+    return dict(sorted(Counter(w["code"] for r in results for w in r.get("warnings",[])).items()))
 
 def _summary(results):
     from collections import Counter
@@ -154,6 +178,8 @@ def _summary(results):
     click.echo(f"  {_CYAN}UNCERTAIN{_RESET} : {v.get('uncertain',0)}")
     click.echo(f"  {_GREEN}PASS{_RESET}      : {v.get('pass',0)}")
     if errors: click.echo(f"  {_RED}ERRORS{_RESET}    : {errors}")
+    for code,n in _warning_counts(results).items():
+        click.echo(f"  {_YELLOW}WARNINGS{_RESET}  : {n} ({code}; informational, no verdict change)")
     if missing or retries:
         click.echo(f"  MISSING   : {missing} (missing_infrastructure)")
         click.echo(f"  RETRIES   : {retries} extra attempt(s)")
@@ -161,6 +187,8 @@ def _summary(results):
     if errors + missing == total: click.echo(f"\n{_RED}⚠  All prompts errored — agent endpoint was not reachable{_RESET}")
     elif v.get('vulnerable',0): click.echo(f"\n{_RED}⚠  {v['vulnerable']} VULNERABLE finding(s){_RESET}")
     elif v.get('fail',0): click.echo(f"\n{_YELLOW}⚠  Review FAIL findings{_RESET}")
+    elif sum(_warning_counts(results).values()):
+        click.echo(f"\n{_YELLOW}⚠  No FAIL or VULNERABLE results, but {sum(_warning_counts(results).values())} payload-surfaced warning(s) need manual review{_RESET}"+(f" ({missing} missing prompt(s) excluded)" if missing else ""))
     elif missing: click.echo(f"\n{_GREEN}✓  No vulnerabilities detected{_RESET} among the {total-missing-errors} scored prompts ({missing} missing prompt(s) excluded)")
     else: click.echo(f"\n{_GREEN}✓  No vulnerabilities detected{_RESET}")
 

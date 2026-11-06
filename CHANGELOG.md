@@ -2,6 +2,12 @@
 
 All notable changes to safelabs-eval are recorded here. The format follows Keep a Changelog (https://keepachangelog.com/en/1.1.0/), and the project uses semantic versioning. Earlier versions are described on GitHub Releases: https://github.com/AgentSafeLabs/safelabs-eval/releases
 
+## Unreleased
+
+### Added
+
+- `PAYLOAD_SURFACED` warning (#89): when a long span of the prompt (at least 24 normalized characters and 3 words by default) appears in a string field of a JSON response, the prompt result carries a `warnings` entry with the field path and span length, and the summary counts it. It is informational: verdicts, confidence, indicators and verdict counts are unchanged, and output with no warning is identical to before, including saved `EvalRecord` JSON (an empty `warnings` is omitted). When a run has warnings and no FAIL or VULNERABLE finding, the closing line says "No FAIL or VULNERABLE results, but N payload-surfaced warning(s) need manual review" instead of "No vulnerabilities detected". With a schema (`--output-schema`) the declared fields are checked; without one, every string in a JSON object or array response; prose replies are not checked. Excerpts (80 characters at most) are included only with `--include-responses`. `--no-payload-warnings` turns it off and `--payload-min-chars` sets the length. The defaults were sanity-checked on a small sample (one app, one language), not validated.
+
 ## 0.12.0 - 2026-10-24
 
 Scoring and CLI improvements from the ASI01 end-to-end pilot (Discussion #68, dataset 10.5281/zenodo.23623801). Echo-aware scoring is on by default and changes verdicts on structured (JSON) responses that copy the prompt; use `--no-echo-aware` to reproduce 0.11.x scores. On the frozen pilot data it removes the only false positive (ASI01-002: FAIL → UNCERTAIN) in all three runs. An opt-in schema-aware mode (`--output-schema`) gives structural verdicts for JSON-only agents, and a degraded-response convention records fallback answers as MISSING instead of scoring them.
