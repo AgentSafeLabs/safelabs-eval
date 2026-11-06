@@ -41,9 +41,9 @@ import time
 from collections import Counter
 from collections.abc import Awaitable, Callable
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, model_serializer, model_validator
 
 from safelabs.agents.errors import ErrorInfo, classify_error, describe_exception
 from safelabs.agents.retry import resolve_retry_settings, retry_delay
@@ -51,6 +51,7 @@ from safelabs.agents.schemas import AgentResponse
 from safelabs.prompts.loader import get_library
 from safelabs.prompts.schemas import PromptCategory, PromptEntry
 from safelabs.scoring.models import ScoringResult, VerdictLevel
+from safelabs.scoring.payload_surfaced import MIN_SURFACED_CHARS, payload_surfaced_warning
 from safelabs.scoring.schema_mode import OutputSchema
 from safelabs.scoring.scorer import Scorer
 
@@ -122,6 +123,9 @@ class EvalRecord(BaseModel):
     attempts: int | None = Field(default=None, ge=1)
     attempt_errors: list[str] | None = None
     tool_call_only: bool | None = None
+    # Informational warnings for a human reviewer (for example PAYLOAD_SURFACED, issue #89). They never
+    # affect the verdict. Excerpts are not stored here; see safelabs.scoring.payload_surfaced.
+    warnings: list[dict[str, Any]] = Field(default_factory=list)
 
     @model_validator(mode="after")
     def _check_status_matches_scoring(self) -> "EvalRecord":
@@ -131,6 +135,15 @@ class EvalRecord(BaseModel):
         elif self.scoring_result is None:
             raise ValueError("scoring_result is required unless status is 'missing_infrastructure'")
         return self
+
+    @model_serializer(mode="wrap")
+    def _omit_empty_warnings(self, handler):
+        """Leave ``warnings`` out of saved records when it is empty, so a record without a warning serializes
+        exactly as it did before the field existed."""
+        data = handler(self)
+        if not data.get("warnings"):
+            data.pop("warnings", None)
+        return data
 
     @property
     def is_missing(self) -> bool:
@@ -200,6 +213,11 @@ class EvalResult(BaseModel):
     def tool_call_only(self) -> list[EvalRecord]:
         return [r for r in self.records if r.tool_call_only]
 
+    @property
+    def warning_counts(self) -> dict[str, int]:
+        """Number of prompt results carrying each warning code (empty when there are none)."""
+        return dict(sorted(Counter(w["code"] for r in self.records for w in r.warnings).items()))
+
     # ── reporting ────────────────────────────────────────────────────────────
 
     def summary(self) -> None:
@@ -242,6 +260,9 @@ class EvalResult(BaseModel):
                 f"{r.scoring_result.confidence:.0%} conf  "
                 f"{r.latency_ms:>6.0f} ms"
             )
+            for w in r.warnings:
+                paths = ", ".join(f["path"] for f in w.get("fields", []))
+                print(f"    {_YELLOW}warn  :{_RESET} {w['code']} in {paths}")
             if r.error:
                 print(f"    {_RED}error :{_RESET} {r.error}")
             elif r.scoring_result.remediation_hint and r.verdict in (
@@ -258,6 +279,8 @@ class EvalResult(BaseModel):
         print(f"  {_GREEN}PASS{_RESET}       : {c.get('pass', 0)}")
         if self.errors:
             print(f"  {_RED}ERRORS{_RESET}     : {len(self.errors)}")
+        for code, n in self.warning_counts.items():
+            print(f"  {_YELLOW}WARNINGS{_RESET}   : {n} ({code}; informational, no verdict change)")
         if n_missing or self.retries or self.tool_call_only:
             print(f"  MISSING    : {n_missing} (missing_infrastructure)")
             if n_missing:
@@ -276,6 +299,10 @@ class EvalResult(BaseModel):
             print(f"\n{_YELLOW}⚠  {c['fail']} FAIL finding(s) — review recommended{_RESET}")
         elif self.total == 0 and n_missing:
             print(f"\n{_YELLOW}⚠  No prompts were scored: all {n_missing} trials are missing_infrastructure{_RESET}")
+        elif sum(self.warning_counts.values()):
+            nw = sum(self.warning_counts.values())
+            tail = f" ({n_missing} missing trial(s) excluded)" if n_missing else ""
+            print(f"\n{_YELLOW}⚠  No FAIL or VULNERABLE results, but {nw} payload-surfaced warning(s) need manual review{_RESET}{tail}")
         elif n_missing:
             print(f"\n{_GREEN}✓  No vulnerabilities detected{_RESET} among the {self.total} scored prompts "
                   f"({n_missing} missing trial(s) excluded)")
@@ -343,6 +370,8 @@ async def run_eval(
     limit: int | None = None,
     output_schema: "OutputSchema | dict | str | Path | None" = None,
     system_prompt: str | None = None,
+    payload_warnings: bool = True,
+    payload_min_chars: int = MIN_SURFACED_CHARS,
 ) -> EvalResult:
     """
     Run the ASI eval suite against *agent_fn*.
@@ -382,6 +411,11 @@ async def run_eval(
         :mod:`safelabs.scoring.schema_mode`. A path, dict or OutputSchema, and the agent's system
         prompt text. Both ``None`` (default) leaves scoring exactly as before. They configure the
         default Scorer, so passing them together with *scorer* raises ValueError: put them on that Scorer.
+
+    payload_warnings, payload_min_chars:
+        Report a PAYLOAD_SURFACED warning on ``EvalRecord.warnings`` when a long span of the prompt
+        appears in a string field of a JSON response (issue #89). Informational only: it never changes
+        a verdict. ``payload_warnings=False`` turns it off; ``payload_min_chars`` is the minimum span length.
 
     Returns
     -------
@@ -471,7 +505,18 @@ async def run_eval(
         scoring_result = await scorer.score(
             eval_type, entry.prompt, response_text,
         )
-        records.append(EvalRecord(**common, response=response_text, scoring_result=scoring_result, status="scored"))
+        warnings: list[dict] = []
+        if payload_warnings:
+            try:
+                w = payload_surfaced_warning(
+                    entry.prompt, response_text, getattr(scorer, "output_schema", None), min_chars=payload_min_chars)
+            except Exception:  # noqa: BLE001 - a warning must never break a run
+                logger.warning("payload-surfaced check failed for %s", entry.id, exc_info=True)
+                w = None
+            if w:
+                warnings.append(w)
+        records.append(EvalRecord(
+            **common, response=response_text, scoring_result=scoring_result, status="scored", warnings=warnings))
         if on_record is not None:
             on_record(records[-1])
 
