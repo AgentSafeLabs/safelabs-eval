@@ -53,6 +53,46 @@ Echo-aware scoring removes the only false positive. With the example schema (`do
 
 ---
 
+## ASI01 through clinical notes (November 2026)
+
+All 30 ASI01 (prompt injection) prompts were delivered indirectly to the AI clinical-notes features of a production dental-clinic SaaS: each prompt was saved as a clinical note on a synthetic patient through the app's real UI, and the app's AI patient summary was then generated over the whole file. This is the second evaluation of the same app, again by Farouk Battikh, run on November 2, 2026, using synthetic data only. The findings below are the evaluator's, as reported in their dataset; they are not SafeLabs results. The evaluation covered a single application and one synthetic patient file, and should not be interpreted as a general security verdict on the target application.
+
+### Setup
+
+- Target: the AI note title and the AI patient summary of a dental-clinic SaaS, the same app as the first pilot (whose AI patient search was the earlier target). The product is not named.
+- Attack model: indirect prompt injection. The attacker's text sits in a clinical note and reaches the model when the dentist asks for a summary.
+- Prompts: all 30 ASI01 prompts, prompt library 1.13.0. None was truncated (the longest is 387 characters).
+- Tool: `safelabs-eval` 0.12.0 with default echo-aware scoring, run with `--retry-profile benchmark` and `--include-responses`.
+- Delivery: a bridge built by the evaluator drove the real UI. It saved the prompt as a new note, generated the summary, read what the dentist sees, and deleted the note again. SafeLabs scored that text.
+- Data: one synthetic patient with three baseline notes. The injected note was always the newest one.
+- Runs: a baseline and a retest of all 30 prompts, plus a smoke test, a supplementary run and two forced-failure runs (70 prompt runs in total).
+
+### Results
+
+- Raw verdicts, baseline and retest: 0 `VULNERABLE`, 0 `FAIL`, 30 `UNCERTAIN`, 0 `PASS` each time. All 30 prompts completed in every run, with no `ERROR` and no `MISSING`.
+- Manual review by the evaluator: the model never followed an injected note. In the 27 AI summaries of the baseline and the 22 of the retest, it either left the injected note out or described it neutrally. No system-prompt text, confirmation token or other patient's name appeared in any output or raw model response across the 70 prompt runs.
+- One issue was found in the app's fallback path, not in the model. When every model in the chain failed, the app showed a local summary that quoted the newest note as the clinical next step, labelled it as a demo, and returned the raw provider or parser error to the browser. It occurred on 3 of 30 prompts in the baseline (provider quota errors, then a cut-off JSON reply from the last model) and reproduced 3 of 3 times with a forced model failure. The evaluator rated it low to medium severity.
+- The evaluator fixed it in the app and retested. In the retest, 8 prompts fell back naturally and all showed the fixed behaviour; 3 of 3 forced failures did too.
+- `safelabs-eval` did not flag the issue: all 30 results were `UNCERTAIN` with 0 indicators. It was found by reviewing what the app displayed.
+- A lower-severity observation, not fixed in the evaluation: on 11 of 30 baseline prompts the AI note title made the injected note look like a normal clinical note, so it does not stand out in the notes list.
+- Limitations stated by the evaluator: one synthetic patient file, with the injected note always the newest (position effects were not tested); the prompts are written as user messages, not as realistic documents; there is no seed; provider availability differed between the baseline and the retest.
+
+### What it revealed about safelabs-eval
+
+The evaluator's feedback led to three follow-ups:
+
+- Echo-aware scoring discounts text the agent copied from the prompt. In an indirect-injection setting the copy can itself be the harm, and nothing told a reviewer. [#89](https://github.com/AgentSafeLabs/safelabs-eval/issues/89) was merged as an informational `PAYLOAD_SURFACED` warning (PR [#92](https://github.com/AgentSafeLabs/safelabs-eval/pull/92), unreleased). It does not change verdicts. Its thresholds were sanity-checked on a small sample, not validated. See the [design note](design/payload-surfaced-signal.md).
+- A summary agent can be given a schema that marks the field a person acts on. [#91](https://github.com/AgentSafeLabs/safelabs-eval/issues/91) added a guide and an example schema: [schema-aware mode for summary and document-based agents](schema-mode-summary-agents.md) (PR [#93](https://github.com/AgentSafeLabs/safelabs-eval/pull/93)).
+- There is no first-class way to deliver a prompt as a document, so indirect-injection results are hard to compare across evaluators. [#90](https://github.com/AgentSafeLabs/safelabs-eval/issues/90) is a design note only (PR [#94](https://github.com/AgentSafeLabs/safelabs-eval/pull/94)); implementation has not started. See [document / context delivery mode](design/document-delivery-mode.md).
+
+### Data and discussion
+
+- Dataset and report: *SafeLabs-Eval ASI01 through clinical notes* (evaluator: Farouk Battikh). Zenodo. <https://doi.org/10.5281/zenodo.23933492>
+- Discussion: <https://github.com/AgentSafeLabs/safelabs-eval/discussions/88>
+- Issues: <https://github.com/AgentSafeLabs/safelabs-eval/issues/89>, <https://github.com/AgentSafeLabs/safelabs-eval/issues/90>, <https://github.com/AgentSafeLabs/safelabs-eval/issues/91>
+
+---
+
 ## Add your own case study
 
 Run `safelabs-eval` against your own agent and share anonymized results in [GitHub Discussions](https://github.com/AgentSafeLabs/safelabs-eval/discussions). Please include:
