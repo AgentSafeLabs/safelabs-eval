@@ -8,6 +8,8 @@ import sys
 from pathlib import Path
 import click
 from safelabs import __version__
+from safelabs.delivery import POSITIONS, list_templates
+from safelabs.delivery.mode import bridge_delivery, check_categories, template_delivery
 
 logger = logging.getLogger(__name__)
 from safelabs.prompts.loader import get_library
@@ -42,9 +44,12 @@ def main(): """safelabs-eval — ASI-category red-teaming for AI agents."""
 @click.option("--include-responses",is_flag=True,default=False,help="Add each agent response to the JSON output (--output json). Responses to adversarial prompts may contain harmful content; do not commit or share results files that contain responses without reviewing them.")
 @click.option("--no-payload-warnings",is_flag=True,default=False,help="Do not report the PAYLOAD_SURFACED warning (a long span of the prompt appearing in a string field of a JSON response). The warning is informational and never changes a verdict.")
 @click.option("--payload-min-chars",default=MIN_SURFACED_CHARS,show_default=True,type=click.IntRange(min=1),help="Minimum length, in normalized characters, of a prompt span that triggers PAYLOAD_SURFACED.")
+@click.option("--delivery-template",default=None,type=click.Choice(sorted({t.id for t in list_templates()})),help="Deliver each prompt inside a built-in synthetic document template (ASI01 only; requires --payload-position). Results are comparable only across runs with the same template id, version and position; see docs/document-delivery.md.")
+@click.option("--payload-position",default=None,type=click.Choice(list(POSITIONS)),help="Where the prompt goes in the document: start, middle or end of its reading order. No default; required with --delivery-template.")
+@click.option("--delivery-label",default=None,help="ID@VERSION of your own bridge that delivers the prompt. Prompts are sent unchanged and the results are labelled as delivered by that bridge. The label is your claim; it is not checked. Cannot be combined with --delivery-template.")
 @click.option("--max-attempts",default=None,type=click.IntRange(min=1),help="Attempts per prompt for infrastructure errors; 1 disables retries.")
 @click.option("--retry-base-delay-s",default=None,type=click.FloatRange(min=0.0),help="First backoff delay in seconds (doubles each retry, with jitter).")
-def run(target,category,prompt_ids,limit,timeout,output,auth_header,retry_profile,no_echo_aware,output_schema,system_prompt_file,include_responses,no_payload_warnings,payload_min_chars,max_attempts,retry_base_delay_s):
+def run(target,category,prompt_ids,limit,timeout,output,auth_header,retry_profile,no_echo_aware,output_schema,system_prompt_file,include_responses,no_payload_warnings,payload_min_chars,delivery_template,payload_position,delivery_label,max_attempts,retry_base_delay_s):
     """Red-team an agent endpoint with ASI-category prompts.
 
     Prompts run through safelabs.runner.run_eval(). An infrastructure error (rate limit,
@@ -58,6 +63,7 @@ def run(target,category,prompt_ids,limit,timeout,output,auth_header,retry_profil
       safelabs run --target http://localhost:8000/chat --category all --retry-profile benchmark
       safelabs run --target http://localhost:8000/chat --prompt-id ASI01-018 --prompt-id ASI03-002
       safelabs run --target http://localhost:8000/chat --category ASI01 --limit 3
+      safelabs run --target http://localhost:8000/chat --category ASI01 --delivery-template referral-letter --payload-position end
     """
     category_explicit = click.get_current_context().get_parameter_source("category") != click.core.ParameterSource.DEFAULT
     asyncio.run(_run_async(target,category,timeout,output,auth_header,
@@ -65,7 +71,8 @@ def run(target,category,prompt_ids,limit,timeout,output,auth_header,retry_profil
                            retry_profile=retry_profile,max_attempts=max_attempts,retry_base_delay_s=retry_base_delay_s,
                            echo_aware=not no_echo_aware,include_responses=include_responses,
                            output_schema=output_schema,system_prompt_file=system_prompt_file,
-                           payload_warnings=not no_payload_warnings,payload_min_chars=payload_min_chars))
+                           payload_warnings=not no_payload_warnings,payload_min_chars=payload_min_chars,
+                           delivery_template=delivery_template,payload_position=payload_position,delivery_label=delivery_label))
 
 def _result_row(rec,include_responses=False,schema=None,payload_min_chars=MIN_SURFACED_CHARS):
     """One entry of the CLI's results list for an EvalRecord. Normal scored rows and unscored error rows keep the
@@ -90,7 +97,8 @@ def _result_row(rec,include_responses=False,schema=None,payload_min_chars=MIN_SU
     if include_responses: row["response"] = rec.response
     return row
 
-async def _run_async(target,category,timeout,output,auth_header,prompt_ids=None,limit=None,category_explicit=True,retry_profile="default",max_attempts=None,retry_base_delay_s=None,echo_aware=True,include_responses=False,output_schema=None,system_prompt_file=None,payload_warnings=True,payload_min_chars=MIN_SURFACED_CHARS):
+async def _run_async(target,category,timeout,output,auth_header,prompt_ids=None,limit=None,category_explicit=True,retry_profile="default",max_attempts=None,retry_base_delay_s=None,echo_aware=True,include_responses=False,output_schema=None,system_prompt_file=None,payload_warnings=True,payload_min_chars=MIN_SURFACED_CHARS,delivery_template=None,payload_position=None,delivery_label=None):
+    delivery = _build_delivery(delivery_template,payload_position,delivery_label)
     scorer = None
     if output_schema or system_prompt_file:
         try:
@@ -113,10 +121,18 @@ async def _run_async(target,category,timeout,output,auth_header,prompt_ids=None,
     except PromptSelectionError as exc:
         click.echo(f"Error: {exc}", err=True); sys.exit(2)
     if not prompts: click.echo(f"No prompts for: {category}", err=True); sys.exit(1)
+    if delivery is not None:
+        try:
+            check_categories([e.category.value for e in prompts])
+        except ValueError as exc:
+            click.echo(f"Error: {exc}", err=True)
+            sys.exit(2)
     cat_label = "ALL" if all_categories else category.upper()
     if output=="text":
         click.echo(f"\n{_BOLD}safelabs-eval v{__version__}{_RESET}")
         click.echo(f"Target  : {target}\nCategory: {cat_label} ({len(prompts)} prompts)\n" + "─"*60)
+        if delivery is not None:
+            click.echo(_delivery_line(delivery.describe()))
 
     def on_start(entry):
         if output=="text":
@@ -144,6 +160,8 @@ async def _run_async(target,category,timeout,output,auth_header,prompt_ids=None,
 
     if scorer is None and not echo_aware: scorer = Scorer(echo_aware=False)  # default Scorer() is echo-aware
     extra = {} if scorer is None else {"scorer": scorer}
+    if delivery is not None:
+        extra["delivery"] = delivery
     result = await run_eval(
         adapter.execute, categories=categories,
         prompt_ids=prompt_ids or None, limit=limit,
@@ -152,14 +170,49 @@ async def _run_async(target,category,timeout,output,auth_header,prompt_ids=None,
         payload_warnings=payload_warnings, payload_min_chars=payload_min_chars, **extra,
     )
     schema = scorer.output_schema if scorer is not None else None
-    results_out = [_result_row(rec,include_responses,schema,payload_min_chars) for rec in result.records]
+    results_out = [_row_with_delivery(_result_row(rec,include_responses,schema,payload_min_chars),rec) for rec in result.records]
     if output=="text": _summary(results_out)
     else:
         doc = {"results":results_out}
+        if delivery is not None:
+            doc["delivery"] = delivery.describe()  # run-level fields, only when delivery is used
         counts = _warning_counts(results_out)
         if counts:
             doc["summary"] = {"warnings":counts}  # only when a warning exists, so other output is unchanged
         click.echo(json.dumps(doc,indent=2))
+
+def _row_with_delivery(row,rec):
+    """Add the delivery description to a result row, only for a run that used delivery."""
+    if rec.delivery:
+        row["delivery"] = rec.delivery
+    return row
+
+def _build_delivery(template,position,label):
+    """The delivery mode for the --delivery-template / --payload-position / --delivery-label options, or None.
+    Invalid combinations exit with status 2 before any prompt is sent."""
+    try:
+        if template and label:
+            raise ValueError("--delivery-template and --delivery-label cannot be combined")
+        if position and not template:
+            raise ValueError("--payload-position is only valid with --delivery-template")
+        if template:
+            if not position:
+                raise ValueError(f"--payload-position is required with --delivery-template (one of: {', '.join(POSITIONS)})")
+            return template_delivery(template,position=position)
+        if label:
+            bridge_id,sep,version = label.rpartition("@")
+            if not sep or not bridge_id.strip() or not version.strip():
+                raise ValueError("--delivery-label must look like ID@VERSION")
+            return bridge_delivery(bridge_id.strip(),version.strip())
+    except ValueError as exc:
+        click.echo(f"Error: {exc}", err=True)
+        sys.exit(2)
+    return None
+
+def _delivery_line(d):
+    if d["mode"]=="bridge":
+        return f"Delivery: bridge {d['bridge_id']} {d['bridge_version']} (declared by you, not checked)"
+    return f"Delivery: template {d['template_id']} v{d['template_version']}, payload at {d['payload_position']}"
 
 def _warning_counts(results):
     """Number of result rows carrying each warning code."""

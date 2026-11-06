@@ -1,6 +1,6 @@
 # Design note: document / context delivery mode (issue #90)
 
-Status: proposal. Design only: no code, no flags and no behavior change come with this note. Every name below (module, parameters, flags, fields) is a sketch for discussion, not an existing API.
+Status: implemented. The render function and templates landed in PR #96 and the `run_eval` and CLI wiring in the follow-up change; usage is in [document-delivery.md](../document-delivery.md). This note was written as a proposal; sections 4.1 to 4.3 and 8 were updated to describe what shipped, and the places where the code differs from the original sketch are marked "Shipped".
 
 Related: [PAYLOAD_SURFACED signal](payload-surfaced-signal.md) (#89), [schema-aware mode](../schema-aware-mode.md) and [schema mode for summary agents](../schema-mode-summary-agents.md) (#70, #91). Source of the request: the ASI01 clinical-notes evaluation by an external evaluator, DOI 10.5281/zenodo.23933492, discussion #88.
 
@@ -75,9 +75,11 @@ Why not A alone: it leaves the result file silent about delivery, which is the a
 
 New package `safelabs/delivery/`:
 
+Shipped: the sketch below is the original proposal. Differences are listed right after it.
+
 ```python
 POSITIONS = ("start", "middle", "end")          # position in reading order
-DEFAULT_POSITION = "end"
+DEFAULT_POSITION = "end"                        # shipped: no default, see below
 
 @dataclass(frozen=True)
 class DeliveryRecord:                           # what is stored on each result
@@ -108,6 +110,12 @@ def bridge_delivery(bridge_id: str, bridge_version: str) -> DeliveryMode   # sen
 
 `render` is pure: same inputs, same output, no I/O. An unknown template id or position raises `ValueError` before anything is sent. A third party can implement `DeliveryMode` for their own transformation and return `mode="bridge"` records with their own id and version.
 
+Shipped, where it differs from the sketch:
+
+- `render(payload, template_id, *, position, template_version=None)`: `position` has no default (see "No default position" below), and the `template_version` argument selects a released version (latest when omitted). An unknown version raises `ValueError`.
+- `DeliveryRecord` (in `safelabs/delivery/render.py`) holds the seven template-mode fields only. Bridge and already-indirect records are plain dicts built in `safelabs/delivery/mode.py`, which also holds the `DeliveryMode` protocol (`prepare(prompt_id, payload, *, already_indirect=False)` returning `Prepared(text, record)`, and `describe()` for the run-level fields), `template_delivery(template_id, *, position, template_version=None)`, `bridge_delivery(bridge_id, bridge_version)` and `check_categories`. `mode.py` is imported directly; it is not re-exported from `safelabs.delivery`.
+- A bridge record is `{"mode": "bridge", "bridge_id", "bridge_version", "declared": true}`.
+
 Hook in `safelabs/runner.py` (one new keyword-only parameter):
 
 ```python
@@ -128,7 +136,7 @@ CLI (sketch, `safelabs run`):
 | Option | Meaning |
 |---|---|
 | `--delivery-template ID` | Deliver each prompt through a built-in template. Unknown ID exits with status 2 before any prompt is sent. |
-| `--payload-position start\|middle\|end` | Where the payload goes in the document. Default `end`. Only valid with `--delivery-template`. |
+| `--payload-position start\|middle\|end` | Where the payload goes in the document. Required with `--delivery-template` (shipped: no default); not valid without it. |
 | `--delivery-label ID@VERSION` | Declare that your target's own bridge delivers the prompt. Prompts are sent unchanged; results are labelled `mode: "bridge"`. Mutually exclusive with `--delivery-template`. |
 
 JSON output: each row gains `"delivery": {...}` only when delivery is set; the top-level document gains `"delivery"` with the run-level fields (everything except `rendered_sha256`) only when set. Output without these options is unchanged.
@@ -142,14 +150,15 @@ Delivery mode, template id, template version, template checksum, payload positio
 A template is plain data, kept as Python data in the package (so there is no packaging question):
 
 - `id`, `version` (integer), `description`;
+- `layout`, `header`, `footer`, `entry_format`, `entry_separator`: the document layout strings (shipped; they are part of the checksum);
 - `task_instruction`: the user task wrapped around the document (for example "Summarise this referral letter for the next clinician"); it is part of the template and part of the checksum;
 - `order`: `oldest_first` or `newest_first` (how entries are displayed);
 - `entries`: 4 fixed, invented filler entries, each with a label, a date and a body;
-- `payload_entry`: label and date for the injected entry, where `date` places it relative to the filler (see section 5).
+- `payload_entry`: the label of the injected entry and three dates (`oldest`, `middle`, `newest`), one per recency. The renderer picks the date that matches the requested position, so the date and the place in the document always agree (see section 5). Shipped: three dates per template, not one.
 
 Rules:
 
-- The checksum is `sha256` of the canonical serialisation of that data (JSON, sorted keys, no whitespace, UTF-8). The registry pins the expected checksum for each `(id, version)` and a test fails if the data changes without a version bump.
+- The checksum is `sha256` of the canonical serialisation of that data (JSON, sorted keys, no whitespace, `ensure_ascii=False` so non-ASCII text is kept as is, encoded as UTF-8). The `ensure_ascii=False` choice is part of the contract: changing it changes every checksum. The registry pins the expected checksum for each `(id, version)` and a test fails if the data changes without a version bump.
 - Any change to a template, however small, increments `version`. Old versions stay available so old results can be re-run.
 - The payload is inserted verbatim: no wrapping, no escaping, no truncation, no added quotes. Section 6 explains why that matters.
 - Dates are fixed strings in the template. Nothing reads the clock.
@@ -167,7 +176,7 @@ The reporter's test had one configuration: the payload was the newest entry, las
 
 - **Position** (the parameter): `start`, `middle` or `end` of the document's reading order. With four filler entries, `middle` means the payload is the third of five.
 - **Recency** (derived and recorded): `newest`, `middle` or `oldest`, computed from the dates in the rendered document, not chosen separately. In `referral-letter` (`oldest_first`) position `end` is the newest entry. In `support-ticket` (`newest_first`) position `start` is the newest entry. So the two built-in templates already let an evaluator vary reading position and recency apart without a second parameter.
-- **Default**: `end`, which for `referral-letter` reproduces the reporter's newest-item setup. Comparisons across evaluators should state position explicitly anyway.
+- **No default (shipped)**: the position is required whenever a template is selected, and the CLI fails with a clear message when it is missing. `end` would reproduce the reporter's newest-item setup for `referral-letter`, but a silent default makes the least informative single position the one most results use. The original sketch proposed `end`; the decision was to require the user to choose (open question 7).
 - **Date cues are the template's**: the payload entry's date is chosen by the template so that the recency label is true (the payload is the newest entry because its date says so). A payload that sits last but is dated oldest would be a different test ("mixed cues"); it is not offered in v1.
 
 What to report: a result table should show position and recency as columns next to the verdict counts, since a change in verdicts with position is itself a finding. This design does not assume position matters; it makes the question answerable.
@@ -243,27 +252,32 @@ Does not ship (no-go):
 - Making document delivery the default for any category.
 - Verifying a declared bridge.
 
+### Decisions taken (shipped)
+
+Answers to the open questions below, as implemented:
+
+1. **Scope of the first release:** two steps. The render module and templates first (PR #96), the wiring second.
+2. **Recency:** derived and recorded, not a parameter.
+3. **Run header:** no run-level header with library and tool versions. The JSON output gains one top-level `delivery` object (the per-result fields except `rendered_sha256`) only when delivery is used.
+4. **Already-indirect prompts:** not wrapped. The 10 ASI01 prompts tagged `indirect` are sent as they are, and their result records `mode: "direct"`, `already_indirect: true` and the template and position that were requested and skipped. This replaces the original proposal to wrap all prompts.
+5. **Category reach:** ASI01 only. Delivery with any other category fails with a clear error before anything is sent (`run_eval` raises `ValueError`; the CLI exits with status 2).
+6. **AgentPort-Bench:** unchanged; benchmark rows do not carry delivery.
+7. **Default position:** none. The position is required with a template.
+9. **Naming:** `--delivery-template`, `--payload-position` and `--delivery-label` are the shipped option names, matching the existing `--payload-min-chars` and `--no-payload-warnings` style. `--delivery-template` takes the template id from the registry (a choice list); template versions are not selectable on the command line (the latest is used and the version is recorded).
+
+Scoring is unchanged: the target receives the rendered document, while the scorer, echo-aware scoring, schema-aware mode and PAYLOAD_SURFACED compare against the original prompt, and `EvalRecord.prompt` is the original prompt. An evaluator-supplied bridge is only a declared id and version, recorded as a claim (`declared: true`); nothing verifies it and there is no bridge framework.
+
 ### Open questions for the maintainer
 
-1. **Scope of the first release:** ship both steps in one PR, or the render module first (Option A) and the wiring second?
-2. **Recency as a parameter:** keep it derived (as proposed), or expose `--payload-recency` too? A second parameter allows "mixed cue" tests but doubles the grid.
-3. **Run header:** results carry no library version, tool version or run options today. Should delivery add a small run-level header (for example under a top-level key), or stay per-row plus the one `delivery` key?
-4. **Already-indirect prompts:** 10 ASI01 prompts are tagged `indirect` and already embed a document. Wrap them like the rest, skip them, or add a flag? The proposal wraps all prompts the same way so results stay comparable.
-5. **Category reach:** the templates are written for ASI01. Allow delivery for any category, or restrict to ASI01 (and ASI07) at first?
-6. **AgentPort-Bench:** should benchmark rows ever carry delivery? Not proposed; the schema forbids extra fields and the library version is a comparability boundary.
-7. **Default position:** `end` reproduces the reporter's setup but is the least informative single position if recency matters. Keep `end`, or require the user to choose?
+Items 1 to 7 and 9 are answered above. Still open:
+
 8. **Template wording ownership:** who reviews the wording of a new template version, given that it changes every downstream result?
-9. **Naming:** `delivery` / `--delivery-template` / `--delivery-label` are placeholders.
 
-### Follow-up list: existing files that would need changes (none are changed by this note)
+### Follow-up list: other files that may need changes
 
-- `safelabs/runner.py`: `run_eval` parameter and docstring, render before the retry loop, send the rendered text, `EvalRecord.delivery` and its serializer omission, set it on scored and missing records.
-- `safelabs/cli.py`: three options, validation, pass-through to `run_eval`, `delivery` key in `_result_row` and in the JSON document.
-- `CHANGELOG.md`: an entry under Unreleased.
-- `README.md`: a short mention and a link to the new page (left to the maintainer; this task did not touch it).
+- Done in the wiring change: `safelabs/runner.py`, `safelabs/cli.py`, `CHANGELOG.md`, the README Evaluations line, `docs/document-delivery.md` and `tests/test_delivery_wiring.py`.
 - `docs/design/payload-surfaced-signal.md`: its "Non-goals" line says "nothing for #90 (delivery mode)"; add a link to this note when it is accepted.
 - `docs/schema-mode-summary-agents.md` and `docs/known-limitations-structured-output-agents.md`: link to the delivery page for document-based agents.
 - `docs/DATASET_CARD.md` and `docs/case-studies.md`: only if the maintainer wants the external evaluation referenced.
 - `safelabs/__init__.py`: only if the delivery API should be exported at top level (optional).
 - `pyproject.toml`: only if templates move out of Python data into non-Python files (not proposed).
-- `tests/`: new file only (for example `tests/test_delivery.py`); no existing test edited.

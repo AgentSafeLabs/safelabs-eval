@@ -48,6 +48,7 @@ from pydantic import BaseModel, Field, model_serializer, model_validator
 from safelabs.agents.errors import ErrorInfo, classify_error, describe_exception
 from safelabs.agents.retry import resolve_retry_settings, retry_delay
 from safelabs.agents.schemas import AgentResponse
+from safelabs.delivery.mode import DeliveryMode, check_categories
 from safelabs.prompts.loader import get_library
 from safelabs.prompts.schemas import PromptCategory, PromptEntry
 from safelabs.scoring.models import ScoringResult, VerdictLevel
@@ -126,6 +127,8 @@ class EvalRecord(BaseModel):
     # Informational warnings for a human reviewer (for example PAYLOAD_SURFACED, issue #89). They never
     # affect the verdict. Excerpts are not stored here; see safelabs.scoring.payload_surfaced.
     warnings: list[dict[str, Any]] = Field(default_factory=list)
+    # How the prompt was delivered (issue #90): set only when run_eval(delivery=...) is used; see safelabs.delivery.mode.
+    delivery: dict[str, Any] | None = None
 
     @model_validator(mode="after")
     def _check_status_matches_scoring(self) -> "EvalRecord":
@@ -138,11 +141,13 @@ class EvalRecord(BaseModel):
 
     @model_serializer(mode="wrap")
     def _omit_empty_warnings(self, handler):
-        """Leave ``warnings`` out of saved records when it is empty, so a record without a warning serializes
-        exactly as it did before the field existed."""
+        """Leave ``warnings`` out of saved records when it is empty and ``delivery`` out when it is None, so a record
+        without either serializes exactly as it did before those fields existed."""
         data = handler(self)
         if not data.get("warnings"):
             data.pop("warnings", None)
+        if data.get("delivery") is None:
+            data.pop("delivery", None)
         return data
 
     @property
@@ -372,6 +377,7 @@ async def run_eval(
     system_prompt: str | None = None,
     payload_warnings: bool = True,
     payload_min_chars: int = MIN_SURFACED_CHARS,
+    delivery: DeliveryMode | None = None,
 ) -> EvalResult:
     """
     Run the ASI eval suite against *agent_fn*.
@@ -417,6 +423,15 @@ async def run_eval(
         appears in a string field of a JSON response (issue #89). Informational only: it never changes
         a verdict. ``payload_warnings=False`` turns it off; ``payload_min_chars`` is the minimum span length.
 
+    delivery:
+        Optional document delivery (issue #90; see :mod:`safelabs.delivery.mode` and docs/document-delivery.md).
+        Built once per prompt before the retry loop; the target receives the rendered text (every retry
+        resends the same text) while ``EvalRecord.prompt``, the scorer, echo-aware scoring, schema mode and
+        PAYLOAD_SURFACED all use the original prompt. The delivery description is stored on
+        ``EvalRecord.delivery``. ASI01 prompts only: any other category raises ValueError before anything is
+        sent. Prompts the library tags ``indirect`` are sent as they are. ``None`` (default) changes nothing,
+        including saved output.
+
     Returns
     -------
     EvalResult
@@ -441,6 +456,8 @@ async def run_eval(
         cats = list(PromptCategory)
 
     prompts = select_prompts(categories, prompt_ids, limit)
+    if delivery is not None:
+        check_categories([e.category.value for e in prompts])
 
     records: list[EvalRecord] = []
 
@@ -448,6 +465,11 @@ async def run_eval(
         eval_type = CATEGORY_EVAL_TYPE.get(entry.category.value, "prompt_injection")
         if on_start is not None:
             on_start(entry)
+        prepared = (
+            delivery.prepare(entry.id, entry.prompt, already_indirect="indirect" in entry.tags)
+            if delivery is not None else None
+        )
+        sent_text = entry.prompt if prepared is None else prepared.text
         attempts = 0
         attempt_errors: list[str] = []
         while True:
@@ -459,7 +481,7 @@ async def run_eval(
             tool_calls = None
 
             try:
-                raw, latency_ms = await _invoke(agent_fn, entry.prompt)
+                raw, latency_ms = await _invoke(agent_fn, sent_text)
                 if isinstance(raw, AgentResponse):
                     response_text, error_msg, meta, tool_calls = raw.output, raw.error, raw.metadata, raw.tool_calls
                     latency_ms = raw.latency_ms or latency_ms        # the adapter's own timing when it reports one
@@ -495,6 +517,7 @@ async def run_eval(
             attempts=attempts,
             attempt_errors=attempt_errors,
             tool_call_only=bool(info is None and not response_text.strip() and tool_calls),
+            delivery=None if prepared is None else prepared.record,
         )
         if info is not None and info.is_infrastructure:
             records.append(EvalRecord(**common, response="", scoring_result=None, status="missing_infrastructure"))
