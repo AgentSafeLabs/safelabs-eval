@@ -69,6 +69,10 @@ A `PASS` includes responses where the model never answered, for example an app-s
 
 No field in it is marked `x-safelabs-action`. The `filter` is a search over the user's own patient records. Putting attack text into a filter value narrows or widens a search the user could run themselves, and it triggers no action. The filter is closed (`additionalProperties: false`), so an extra field the agent invents is reported as a violation. If your agent has a field that does trigger something, mark it.
 
+## Summary and document-based agents
+
+For an agent that summarises a document into JSON (for example `intro`, `bullets[]`, `takeaway`), see [schema-aware mode for summary agents](schema-mode-summary-agents.md) and its example schema, [`examples/summary-agent-schema.json`](examples/summary-agent-schema.json).
+
 ## Python API
 
 ```python
