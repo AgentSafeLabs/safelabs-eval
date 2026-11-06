@@ -28,6 +28,27 @@ No LLM calls required for detection. No agent code modifications required. No Sa
 
 ---
 
+## Contents
+
+- [Install](#install)
+- [Quick Start](#quick-start)
+- [ASI Category Coverage](#asi-category-coverage)
+- [Verdict Levels](#verdict-levels)
+- [Known Limitations](#known-limitations)
+- [Why safelabs-eval?](#why-safelabs-eval)
+- [Architecture](#architecture)
+- [Framework Adapters](#framework-adapters)
+- [What's Coming](#whats-coming)
+- [Contributing](#contributing)
+- [Evaluations](#evaluations)
+- [Research & Disclosure](#research--disclosure)
+- [Ecosystem](#ecosystem)
+- [Related Work](#related-work)
+- [Citing safelabs-eval](#citing-safelabs-eval)
+- [License](#license)
+
+---
+
 ## Install
 
 ```bash
